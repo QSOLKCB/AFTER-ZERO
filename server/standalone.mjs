@@ -1,7 +1,9 @@
 import {createServer} from 'node:http';
 import {createHash} from 'node:crypto';
+import {gzipSync} from 'node:zlib';
 import {handleArena} from './arena-api.js';
 import {openStore} from './sqlite-store.mjs';
+import {EgressBudget, MONTHLY_EGRESS_BYTES} from './egress-budget.mjs';
 
 const MAX_BODY = 125000;
 const digest = text => createHash('sha256').update(text).digest('hex');
@@ -39,7 +41,7 @@ async function readBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, maxRequests = 700, maxInFlight = 32, log = console.error}) {
+export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, maxRequests = 700, maxInFlight = 32, monthlyEgressBytes = MONTHLY_EGRESS_BYTES, log = console.error}) {
   if (!databasePath) throw Error('ARENA_DB_PATH is required.');
   const origins = parseOrigins(allowedOrigins);
   if (!origins.size) throw Error('At least one allowed origin is required.');
@@ -48,16 +50,33 @@ export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, m
   }
   if (maxRooms > 6) throw Error('MAX_ACTIVE_ROOMS cannot exceed the shared API owner limit of six.');
   const DB = openStore(databasePath), globalLimit = bucket(maxRequests, maxRequests);
+  const egress = new EgressBudget(DB.sqlite, monthlyEgressBytes);
   const sessions = new Map();
   let closing = false, inFlight = 0, tail = Promise.resolve(), closePromise;
   // Serialize the single SQLite writer. This also makes capacity checks + create atomic.
   const exclusive = task => { const work = tail.then(task); tail = work.catch(() => {}); return work; };
   const server = createServer({maxHeaderSize: 16384}, async (req, res) => {
     const origin = req.headers.origin;
-    const headers = {'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', Vary: 'Origin'};
+    const headers = {'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', Vary: 'Origin, Accept-Encoding'};
     if (origins.has(origin)) headers['Access-Control-Allow-Origin'] = origin;
+    const health = ['/healthz', '/readyz'].includes(req.url) && req.method === 'GET';
+    const exhausted = {error: 'This arena has used its monthly traffic allowance. Online matches are paused until next month. Campaign and Forge remain available.'};
+    const encodings = String(req.headers['accept-encoding'] || '').toLowerCase().split(',').map(part => part.trim().split(';'));
+    const gzip = encodings.find(([name]) => name === 'gzip') || encodings.find(([name]) => name === '*');
+    const acceptsGzip = gzip && !gzip.slice(1).some(value => /^\s*q\s*=\s*0(?:\.0*)?\s*$/.test(value));
     const reply = (status, value, extra = {}) => {
-      if (!res.destroyed) { res.writeHead(status, {...headers, ...extra}); res.end(JSON.stringify(value)); }
+      if (res.destroyed) return;
+      let body = status === 204 ? Buffer.alloc(0) : Buffer.from(JSON.stringify(value)), encoding;
+      if (body.length >= 1024 && acceptsGzip) {
+        const compressed = gzipSync(body, {level: 1});
+        if (compressed.length < body.length) { body = compressed; encoding = 'gzip'; }
+      }
+      if (!health && !egress.reserve(body.length)) {
+        status = 507; body = Buffer.from(JSON.stringify(exhausted)); encoding = undefined;
+        extra = {'Retry-After': '86400'};
+      }
+      res.writeHead(status, {...headers, ...extra, ...(encoding ? {'Content-Encoding': encoding} : {}), 'Content-Length': body.length});
+      res.end(body);
     };
     if (req.url === '/healthz' && req.method === 'GET') return reply(200, {status: 'ok'});
     if (req.url === '/readyz' && req.method === 'GET') {
@@ -67,10 +86,14 @@ export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, m
     if (req.url !== '/api/arena') return reply(404, {error: 'Not found.'});
     if (closing) return reply(503, {error: 'Server restarting. Please retry.'}, {'Retry-After': '2'});
     if (!origins.has(origin)) return reply(403, {error: 'Origin not allowed.'});
+    if (req.method !== 'OPTIONS' && egress.exhausted()) return reply(507, exhausted);
     if (req.method === 'OPTIONS') {
       const requested = String(req.headers['access-control-request-headers'] || '').toLowerCase().split(',').map(v => v.trim()).filter(Boolean);
       if (req.headers['access-control-request-method'] !== 'POST' || requested.some(v => v !== 'content-type')) return reply(403, {error: 'Preflight not allowed.'});
+      // Preflight must still succeed after exhaustion so browsers can read the
+      // terminal 507 response and stop polling instead of retrying a CORS error.
       res.writeHead(204, {...headers, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600'});
+      if (!egress.exhausted()) egress.reserve(0);
       return res.end();
     }
     if (req.method !== 'POST') return reply(405, {error: 'Use POST.'}, {Allow: 'POST, OPTIONS'});

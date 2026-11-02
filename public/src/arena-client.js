@@ -4,7 +4,7 @@ import {applyLook} from './aim.js';
 import {clamp} from './math.js';
 import {advanceMotion,replayMotion} from './arena-motion.js';
 import {NET,interpolatePlayers} from './arena-network.js';
-import {ARENA_API_URL} from './arena-endpoint.js';
+import {ARENA_API_URL} from './arena-endpoint.js?v=0.4.3';
 const edges=['jump','dash','reload','timePressed','use'];
 export class ArenaClient{
  constructor({onUpdate=()=>{},onEvent=()=>{},onError=()=>{}}={}){this.onUpdate=onUpdate;this.onEvent=onEvent;this.onError=onError;this.token=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');this.seq=0;this.pending={};this.held={};this.active=false;this.eventId=0;this.latency=0;this.received=0;this.inFlight=0;this.frames=[];this.shots=[];this.actions=[];this.commandId=0;this.shotId=0;this.fireReady=WEAPONS.map(()=>0);this.revision=-1;this.fireUntil=0;this.predictedShots=new Set();this.motionHistory=[];this.correction={x:0,y:0,z:0};this.lastSent=-Infinity;this.nextSend=Infinity;}
@@ -24,7 +24,7 @@ export class ArenaClient{
   const payload={action:'sync',seq:++this.seq,input:{...this.held},timing:{protocol:2,receipt:clock?.id,waitMs:Math.max(0,performance.now()-this.received),shots:this.shots.slice(0,32),actions:this.actions.slice(0,16)}};
   this.inFlight++;
   try{const data=await this.request(payload);if(!this.active)return;this.receive(data.snapshot);}
-  catch(err){if(!this.active||payload.seq<(this.snapshot?.ack??0))return;this.error=err.message;if(err.status===401||err.status===404){this.active=false;clearTimeout(this.timer);this.onError(err.message);this.onUpdate(this);}else if(performance.now()-this.received>1000)this.onError(err.message);else this.onUpdate(this);}
+  catch(err){if(!this.active||payload.seq<(this.snapshot?.ack??0))return;this.error=err.message;if(err.status===401||err.status===404||err.status===507){this.active=false;clearTimeout(this.timer);this.onError(err.message);this.onUpdate(this);}else if(performance.now()-this.received>1000)this.onError(err.message);else this.onUpdate(this);}
   finally{this.inFlight--;}
  }
  receive(s){

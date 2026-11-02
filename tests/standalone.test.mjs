@@ -10,6 +10,7 @@ import {pathToFileURL} from 'node:url';
 import {createArenaServer, parseOrigins} from '../server/standalone.mjs';
 import {backupStore,openStore} from '../server/sqlite-store.mjs';
 import {DatabaseSync} from 'node:sqlite';
+import {EgressBudget} from '../server/egress-budget.mjs';
 
 const origin = 'https://qsolkcb.github.io';
 const token = n => n.toString(16).padStart(2, '0').repeat(32);
@@ -63,7 +64,7 @@ test('preflight allows only configured origins, POST and Content-Type', async t 
   const {app} = await fixture(t);
   const options = headers => fetch(app.url + '/api/arena', {method: 'OPTIONS', headers});
   const allowed = await options({Origin: origin, 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'content-type'});
-  assert.equal(allowed.status, 204); assert.equal(allowed.headers.get('vary'), 'Origin');
+  assert.equal(allowed.status, 204); assert.equal(allowed.headers.get('vary'), 'Origin, Accept-Encoding');
   for (const bad of ['https://evil.test', 'null', origin + '/AFTER-ZERO/']) {
     const response = await options({Origin: bad, 'Access-Control-Request-Method': 'POST'});
     assert.equal(response.status, 403); assert.equal(response.headers.get('access-control-allow-origin'), null);
@@ -134,6 +135,53 @@ test('global rate limit rejects excess requests without blocking readiness', asy
   const codes = await Promise.all([1, 2, 3, 4].map(n => app.call({action: 'unknown', token: token(n)})));
   assert(codes.some(r => r.status === 429));
   assert.equal((await fetch(app.url + '/readyz')).status, 200);
+});
+
+test('large snapshots compress without changing state and respect an explicit gzip opt-out', async t => {
+  const {app} = await fixture(t);
+  const body = {action: 'create', token: token(1), options: {mode: 'tdm', slots: 8}};
+  const compressed = await app.call(body, {'Accept-Encoding': 'gzip'});
+  const plain = await app.call(body, {'Accept-Encoding': 'gzip;q=0, *;q=1'});
+  assert.equal(compressed.headers.get('content-encoding'), 'gzip');
+  assert.equal(plain.headers.get('content-encoding'), null);
+  assert.deepEqual(compressed.body, plain.body);
+  assert(Number(compressed.headers.get('content-length')) < Number(plain.headers.get('content-length')) / 2);
+});
+
+test('traffic exhaustion survives restart, rejects new matches and preserves browser preflight and readiness', async t => {
+  const {app, start} = await fixture(t, {monthlyEgressBytes: 15000});
+  let response;
+  for (let n = 0; n < 10; n++) {
+    response = await app.call({action: 'create', token: token(1)}, {'Accept-Encoding': 'gzip'});
+    if (response.status === 507) break;
+  }
+  assert.equal(response.status, 507);
+  assert.match(response.body.error, /monthly traffic allowance/);
+  const rooms = app.DB.sqlite.prepare('SELECT count(*) AS n FROM arena_rooms').get().n;
+  assert.equal((await app.call({action: 'create', token: token(2)})).status, 507);
+  assert.equal(app.DB.sqlite.prepare('SELECT count(*) AS n FROM arena_rooms').get().n, rooms);
+  await app.close();
+  const restarted = await start();
+  assert.equal((await restarted.call({action: 'create', token: token(3)})).status, 507);
+  const preflight = await fetch(restarted.url + '/api/arena', {method: 'OPTIONS', headers: {Origin: origin, 'Access-Control-Request-Method': 'POST'}});
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+  assert.equal((await fetch(restarted.url + '/readyz')).status, 200);
+});
+
+test('traffic reservations count overhead and reset only at the UTC month boundary', () => {
+  const sqlite = new DatabaseSync(':memory:');
+  try {
+    let now = Date.UTC(2026, 10, 30, 23, 59, 59);
+    const budget = new EgressBudget(sqlite, 5000, () => now);
+    assert.equal(budget.reserve(1000), true);
+    assert.equal(new EgressBudget(sqlite, 5000, () => now).usage().reserved, 3048);
+    assert.equal(budget.reserve(1), false);
+    assert.equal(budget.exhausted(), true);
+    now += 1000;
+    assert.equal(budget.exhausted(), false);
+    assert.equal(budget.reserve(1000), true);
+  } finally { sqlite.close(); }
 });
 
 test('static endpoint configuration accepts a public API URL and rejects secrets or insecure URLs', async t => {

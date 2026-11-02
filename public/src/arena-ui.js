@@ -1,4 +1,4 @@
-import {ArenaClient} from './arena-client.js';
+import {ArenaClient} from './arena-client.js?v=0.4.3';
 import {CLASSES,MODES} from './arena-sim.js';
 import {validateMap,cloneMap} from './maps.js';
 const $=s=>document.querySelector(s);

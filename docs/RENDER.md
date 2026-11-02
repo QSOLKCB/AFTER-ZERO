@@ -2,20 +2,24 @@
 
 This is an optional, separate deployment of the existing arena simulation. The Sites Worker/D1 API remains available. The Render service uses Node's standard library and SQLite; it has no runtime npm dependencies and does not need the Sites framework build.
 
-## Proposed resources
+## Deployed resources
 
 | Setting | Value |
 | --- | --- |
-| Repository / branch | QSOLKCB/AFTER-ZERO / main, after review and merge |
+| Repository / branch | QSOLKCB/AFTER-ZERO / main; PR #1 merged |
 | Service | afterzero-arena, public Node web service |
-| Region | Singapore, proposed for Australian players |
+| Region | Singapore, confirmed by the owner |
 | Compute | 0.5c-512mb, one instance |
 | Persistent disk | 1 GB mounted at /var/data |
 | Database | /var/data/afterzero/arena.sqlite |
 | Initial room limit | Two simultaneous rooms, each retaining the existing 8/12/16 slots |
 | Automatic deployment | Off |
 
-Published pricing reference: US$7/month compute plus US$0.25/month for a 1 GB disk. This is a US$7.25/month resource baseline, excluding workspace charges, excess usage, taxes and currency conversion. The current account's workspace/billing settings have not been inspected because no workspace is confirmed. Check the Dashboard quote before applying.
+The owner approved deployment in QSOL-IMC. Render accepted the US$7/month compute plus US$0.25/month disk quote on 3 November 2026 (Adelaide). The workspace is Hobby, with no workspace subscription fee; extra build spending is capped at $0. Service auto-deploy and Blueprint auto-sync are off. The deployed backend is https://afterzero-arena.onrender.com and GitHub Pages uses its `/api/arena` endpoint through the repository variable.
+
+**US$7.25/month is a resource baseline, not an all-in billing cap.** Render includes 5 GB outbound traffic on Hobby and charges US$0.15/GB above that. Applicable tax is not established by the resource quote. Billing continues until resources are stopped or removed; deployment does not purchase a prepaid one-month package. No provider-wide hard bandwidth spending cap was found in the current Dashboard or documentation.
+
+The adapter compresses larger responses with gzip level 1 when the client accepts it. An application allowance reserves compressed body bytes plus 2 KiB per response and pauses arena requests at 3 GB per UTC calendar month, leaving 2 GB of the included allowance for other traffic and measurement differences. The counter is persisted in the standalone-only `arena_egress` SQLite table before sending responses, survives restarts, and resets at the UTC month boundary. HTTP 507 stops game polling with a visible message; Campaign and Forge remain available. Health checks and CORS preflight remain available. This is a conservative application guard, **not a guarantee on Render's total bill**: proxy-generated traffic, repeated rejection responses, unrelated workspace traffic and taxes remain outside its accounting. Monitor provider usage as the billing authority. Do not reset or restore an older traffic counter to extend the allowance.
 
 The selected small plan is a starting configuration, not a measured player-capacity guarantee. This disk architecture supports one instance and briefly interrupts connections during deployment. If a restart lasts beyond the game's 12-second session timeout, players must rejoin. Rooms expire after 20 minutes without requests. Multi-instance scaling would require different storage and room coordination.
 
@@ -63,6 +67,8 @@ For a code rollback, redeploy the preceding tested commit. Startup refuses a dat
 
 The standalone suite exercises two HTTP clients, balanced teams, replay-safe actions, session isolation, CORS preflight, forged provider headers, concurrent capacity checks, malformed/oversized/chunked bodies, rate limits, restart persistence and backup restoration. The full game suite remains required. The shared lag-compensation tests and limitations are recorded in [NETCODE.md](NETCODE.md).
 
-Local checks do not establish Render's network latency or capacity. Live Render acceptance and GPU gameplay remain pending. JSON Schema validation checks Blueprint structure; Render CLI/platform validation and inspection of the target workspace remain separate checks.
+The initial Render deployment became live on commit `a31b06820d83c4589fbb1efc825d3768ad2a86f0`; `/healthz`, `/readyz` and both configured browser preflights returned success. A 20-second two-client TDM sample observed balanced human teams, six bots and changing scores. Its 91 completed sync responses were all HTTP 200, but cloud-runtime RTT was 342 ms median / 1868 ms p95 with timeouts and rejected late shots. This is not a latency acceptance pass or a worldwide measurement. Initial memory usage remained below 70 MB and the sampled CPU use was about 0.044 CPU; these brief samples do not establish capacity. GPU combat remains unverified because the cloud browser cannot create WebGL.
+
+Native Render validation rejected a custom shutdown delay with a disk attached; removing that override allowed deployment with the platform default. JSON Schema validation alone does not establish platform validity. The gzip/traffic-allowance update additionally tests response equivalence, encoding opt-out, exhaustion across restart, UTC rollover and client polling shutdown.
 
 References: [compute plans](https://render.com/docs/compute-plans), [pricing](https://render.com/pricing), [persistent disks](https://render.com/docs/disks), [Blueprint reference](https://render.com/docs/blueprint-spec).

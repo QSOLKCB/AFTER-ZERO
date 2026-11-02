@@ -4,7 +4,7 @@ import {Renderer} from './renderer.js';
 import {Sound} from './audio.js';
 import {Editor,drawMap} from './editor.js';
 import {readSave,writeStored,SAVE_KEY,SETTINGS_KEY,completeMission} from './storage.js';
-import {setupArena,arenaScore} from './arena-ui.js';
+import {setupArena,arenaScore} from './arena-ui.js?v=0.4.3';
 import {MODES,CLASSES} from './arena-sim.js';
 import {drawSight} from './sights.js';
 import {Controls} from './controls.js';

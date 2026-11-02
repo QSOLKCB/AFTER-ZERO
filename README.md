@@ -2,7 +2,7 @@
 
 **They own the city. You own the next second.**
 
-An original cyberpunk FPS with a single-player campaign and online mixed human/AI arenas, written in vanilla HTML, CSS and JavaScript. Raw WebGL 2 / WebGL 1 renders the world; Pointer Lock handles aim; Web Audio synthesizes the soundtrack and effects. The browser game has no game engine, framework, CDN, remote fonts or imported art. A Sites Vinext Worker and D1 database serve the online arena API. There are no analytics or external AI services; agents are local game AI running on the authoritative server.
+An original cyberpunk FPS with a single-player campaign and online mixed human/AI arenas, written in vanilla HTML, CSS and JavaScript. Raw WebGL 2 / WebGL 1 renders the world; Pointer Lock handles aim; Web Audio synthesizes the soundtrack and effects. The browser game has no game engine, framework, CDN, remote fonts or imported art. The published arena uses a standalone Node/SQLite server in Singapore on Render. The source retains the Sites Vinext Worker/D1 adapter for same-origin hosting. There are no analytics or external AI services; agents are local game AI running on the authoritative server.
 
 This is a standalone game using a small, attributed foundation from [QSOLKCB/QUICKSCOPER](https://github.com/QSOLKCB/QUICKSCOPER). It does not replace QUICKSCOPER.
 
@@ -121,7 +121,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 
 Hosted publication applies schema migrations through Sites. Do not replay an already-applied local migration. Source lives in `public/`, `server/` and `app/`; generated `dist/` is the deployment artifact. The source ZIP includes a sanitized manifest without the original Site ID or credentials.
 
-For a static campaign/editor copy, serve `public/` with any HTTP server. `file://` does not support ES modules. The included GitHub Pages workflow publishes `public/`. Online rooms need a server: the optional [Render deployment](docs/RENDER.md) provides the same API using a standalone Node process and persistent SQLite. Set the Pages repository variable `ARENA_API_URL` to the deployed HTTPS `/api/arena` endpoint to connect it. Without that variable, Pages retains campaign/editor support and reports that arena requires a server. The default relative API path preserves the existing Sites deployment.
+For a static campaign/editor copy, serve `public/` with any HTTP server. `file://` does not support ES modules. The included GitHub Pages workflow publishes `public/`. Online rooms need a server: the optional [Render deployment](docs/RENDER.md) provides the same API using a standalone Node process and persistent SQLite. Set the Pages repository variable `ARENA_API_URL` to the deployed HTTPS `/api/arena` endpoint to connect it. Without that variable, Pages retains campaign/editor support and reports that arena requires a server. The repository default remains relative; the published frontends explicitly select the Singapore API.
 
 The [initial source import record](docs/SOURCE_IMPORT.md) identifies the original v0.3.1 source and provenance. No Render service is created merely by adding this repository or its Blueprint.
 

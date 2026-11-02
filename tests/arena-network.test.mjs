@@ -4,6 +4,11 @@ import {createArena,acceptInput,advanceArena,respawn,arenaSnapshot} from '../pub
 import {NET,recordHistory,issueReceipt,historicalPose,interpolatePlayers,confirmationTime,measureTiming} from '../public/src/arena-network.js';
 import {advanceMotion,replayMotion} from '../public/src/arena-motion.js';
 import {ArenaClient} from '../public/src/arena-client.js';
+
+test('the client stops polling when the server pauses arena traffic', async () => {
+ const client=new ArenaClient();client.active=true;client.request=async()=>{throw Object.assign(Error('Monthly traffic allowance reached.'),{status:507});};
+ await client.poll();assert.equal(client.active,false);assert.equal(client.inFlight,0);assert.match(client.error,/traffic allowance/);
+});
 import {emptyMap} from '../public/src/maps.js';
 import {WEAPONS} from '../public/src/game.js';
 
