@@ -12,7 +12,6 @@ services:
     buildCommand: node --test tests/*.test.mjs && node scripts/check.mjs
     startCommand: node server/start.mjs
     healthCheckPath: /readyz
-    maxShutdownDelaySeconds: 30
     disk:
       name: arena-data
       mountPath: /var/data
