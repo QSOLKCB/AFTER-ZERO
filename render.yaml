@@ -1,0 +1,28 @@
+# Apply only after approving the paid web service and disk in the intended workspace.
+services:
+  - type: web
+    name: afterzero-arena
+    runtime: node
+    repo: https://github.com/QSOLKCB/AFTER-ZERO
+    branch: main
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: 'off'
+    buildCommand: node --test tests/*.test.mjs && node scripts/check.mjs
+    startCommand: node server/start.mjs
+    healthCheckPath: /readyz
+    maxShutdownDelaySeconds: 30
+    disk:
+      name: arena-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: ARENA_DB_PATH
+        value: /var/data/afterzero/arena.sqlite
+      - key: ALLOWED_ORIGINS
+        value: https://qsolkcb.github.io,https://afterzero-cyberpunk-fps.trent-slade.chatgpt.site
+      - key: MAX_ACTIVE_ROOMS
+        value: '2'

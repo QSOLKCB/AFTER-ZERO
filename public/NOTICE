@@ -1,0 +1,23 @@
+AFTER//ZERO — Copyright 2026 QSOL–IMC contributors.
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Donor: QSOLKCB/QUICKSCOPER
+Source commit: 7c406e2545d82ee6bdc5fda5f198eb22fa183a84
+Source URL: https://github.com/QSOLKCB/QUICKSCOPER
+Donor license: Apache-2.0 (retained in LICENSE).
+
+src/math.js retains QUICKSCOPER's column-major matrices, vectors, seeded RNG
+and slab ray/AABB intersection implementation.
+src/mesh.js adapts QUICKSCOPER's expanded-cube mesh builder and batching.
+
+All other browser game runtime files are authored for AFTER//ZERO. The server hosting scaffold uses the maintained Sites Vinext starter and its dependency licenses. Campaign maps, story,
+robot/weapon/world designs, UI and synthesized audio contain no imported
+proprietary game assets. Donor attribution is provenance, not endorsement.
+
+LibreQuake informed held-fire and weapon-cycling concepts only. No LibreQuake code or assets are included. All optics are original canvas and procedural geometry.
+
+VANILLAJS (QSOLKCB), reviewed at commit
+7413d0a9b3555e47a97fbcf344718b42d7ec0f2d, informed projectile lifetime,
+chronological-impact and frame-rate regression scenarios. No VANILLAJS source
+modules or assets are bundled; AFTER//ZERO retains its own robot hit geometry
+and implements its own network timing and compensation.
