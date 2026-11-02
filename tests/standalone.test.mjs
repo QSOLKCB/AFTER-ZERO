@@ -8,10 +8,18 @@ import {request} from 'node:http';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {createArenaServer, parseOrigins} from '../server/standalone.mjs';
-import {backupStore} from '../server/sqlite-store.mjs';
+import {backupStore,openStore} from '../server/sqlite-store.mjs';
+import {DatabaseSync} from 'node:sqlite';
 
 const origin = 'https://qsolkcb.github.io';
 const token = n => n.toString(16).padStart(2, '0').repeat(32);
+test('schema-one rooms upgrade to the command inbox without losing stored state',t=>{
+ const directory=mkdtempSync(join(tmpdir(),'afterzero-upgrade-')),path=join(directory,'arena.sqlite');t.after(()=>rmSync(directory,{recursive:true,force:true}));
+ const old=new DatabaseSync(path);old.exec(readFileSync(new URL('../drizzle/0000_moaning_karnak.sql',import.meta.url),'utf8'));old.exec('PRAGMA user_version=1');
+ old.prepare('INSERT INTO arena_rooms (code,revision,data,owner,expires) VALUES (?,?,?,?,?)').run('AABBCCDD',7,'{"preserved":true}','owner',999999);old.close();
+ const upgraded=openStore(path);assert.equal(upgraded.sqlite.prepare('PRAGMA user_version').get().user_version,2);assert.deepEqual(JSON.parse(upgraded.sqlite.prepare('SELECT data FROM arena_rooms').get().data),{preserved:true});
+ assert.equal(upgraded.sqlite.prepare('SELECT lease_until FROM arena_rooms').get().lease_until,0);assert.equal(upgraded.sqlite.prepare('SELECT count(*) AS n FROM arena_commands').get().n,0);upgraded.close();
+});
 async function fixture(t, options = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'afterzero-'));
   const filename = join(directory, 'arena.sqlite');

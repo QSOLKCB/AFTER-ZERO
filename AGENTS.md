@@ -13,7 +13,7 @@ Read README.md and public/NOTICE before making changes. Preserve donor provenanc
 - Keep relative runtime paths. Author the game in public/; build deployable output in dist/ using the Sites build helper. Update the downloadable source ZIP after source edits with python3 scripts/source-archive.py. Never place credentials in the repo or ZIP.
 - Do not merge, tag, or change an existing Site’s audience without user authorization.
 
-- Arena simulation is server-authoritative. Never trust client positions, hits, health or scores. Persist rooms with D1 compare-and-swap revisions; validate inputs and sequence numbers. Keep a bot on each mixed team.
+- Arena simulation is server-authoritative. Never trust client positions, hits, health or scores. Persist rooms with D1 writer leases and compare-and-swap revisions; fence commits against unprocessed inputs. Keep the authenticated inbox bounded, validate input sequences and retain unacknowledged shot/action edges. Keep a bot on each mixed team.
 - Procedural layouts must validate and preserve a connected floor graph; generation must be repeatable and undoable.
 - Keep walkability separate from sight lines. Navigation shortcuts must clear the body footprint; inaccessible targets must never fall back to moving through solids. Arena route state must remain JSON-serializable.
 

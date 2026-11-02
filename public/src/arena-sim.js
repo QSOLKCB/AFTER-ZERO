@@ -1,10 +1,11 @@
 // Shared deterministic arena rules. Production advances this state on the server only.
-import {worldFor,moveBody,firstWall,enemyRay,WEAPONS,STEP} from './game.js';
+import {worldFor,firstWall,enemyRay,WEAPONS,STEP} from './game.js';
 import {Navigation,steerTo} from './navigation.js';
 import {clamp,forward} from './math.js';
 import {generateMap,seedNumber} from './generator.js';
 import {cloneMap,parseMap} from './maps.js';
-import {NET,recordHistory,historicalPose,playerNetwork,measureTiming,validateShot,rememberShot} from './arena-network.js';
+import {advanceMotion} from './arena-motion.js';
+import {NET,recordHistory,historicalPose,playerNetwork,measureTiming,validateShot,rememberShot,confirmationTime} from './arena-network.js';
 export const MODES={dm:'Deathmatch',tdm:'Team deathmatch',dom:'Domination'};
 export const CLASSES={
  sniper:{name:'Sniper',weapon:3,health:90,speed:5.3,role:'NULL rail · long-range precision'},
@@ -61,11 +62,11 @@ function balanceHumans(s){
  const from=humans[0].length>humans[1].length?0:1,p=humans[from].at(-1),bot=s.players.find(q=>q.bot&&q.team===1-from);if(!bot)return;
  bot.team=from;p.team=1-from;respawn(s,p);respawn(s,bot);event(s,'balance',{name:p.name});
 }
-export function acceptInput(s,id,input,seq,now,timing){
+export function acceptInput(s,id,input,seq,now,timing,receivedAt=now){
  const p=s.players.find(v=>v.id===id&&!v.bot);if(!p)throw Error('Session expired. Join the room again.');
  p.lastSeen=now;
  if(s.networked&&timing?.protocol===2){
-  measureTiming(p,timing,now);p.protocol=2;
+  measureTiming(p,timing,receivedAt);p.protocol=2;
   const clock=playerNetwork(p).receipts.find(r=>r.id===timing.receipt);
   if(clock&&clock.round===s.round&&clock.life===p.life&&now-clock.sentAt<500){
    for(const command of (Array.isArray(timing.actions)?timing.actions:[]).slice(0,16)){
@@ -80,7 +81,7 @@ export function acceptInput(s,id,input,seq,now,timing){
   const valid=[];
   for(const shot of shots){
    if(!shot||!Number.isSafeInteger(shot.id)||shot.id<1||playerNetwork(p).seen.includes(shot.id))continue;
-   const proof=validateShot(s,p,shot,now);
+   const proof=validateShot(s,p,shot,receivedAt);
    rememberShot(p,shot.id,proof.reason||'queued');if(!proof.reason)valid.push({shot,proof});
   }
   valid.sort((a,b)=>a.proof.at-b.proof.at||a.shot.id-b.shot.id);
@@ -89,7 +90,7 @@ export function acceptInput(s,id,input,seq,now,timing){
    result.reason=shoot(s,p,{...sanitizeInput(shot),aim:shot.aim===true},{...proof,clientShotId:shot.id})||'accepted';
   }
  }
- if(Number.isSafeInteger(seq)&&seq>p.seq){p.input=sanitizeInput(input);if(p.protocol===2){for(const k of ['firePressed','jump','dash','reload','timePressed','use'])p.input[k]=false;p.input.weapon=null;}p.seq=seq;p.inputAt=now;return true;}return false;
+ if(Number.isSafeInteger(seq)&&seq>p.seq){p.input=sanitizeInput(input);if(p.protocol===2){for(const k of ['firePressed','jump','dash','reload','timePressed','use'])p.input[k]=false;p.input.weapon=null;}p.seq=seq;p.inputAt=receivedAt;return true;}return false;
 }
 function event(s,type,data={}){s.events.push({id:++s.eventId,type,...data});s.events=s.events.slice(-32);}
 function botInput(s,p,world,nav,dt){
@@ -148,10 +149,9 @@ function impact(s,b,target,pose,damage,at){
 }
 function settleImpacts(s){
  if(!s.networked)return;
- // A common settlement delay lets late packets compete by game time, not arrival order.
+ // Outstanding timing permissions determine when game-time ordering is final.
  s.impacts.sort((a,b)=>a.at-b.at||a.projectile-b.projectile);
- const cutoff=s.time-NET.settle;
- while(s.impacts.length&&s.impacts[0].at<=cutoff+1e-7){
+ while(s.impacts.length&&confirmationTime(s,s.impacts[0].at)<=s.time+1e-7){
   const at=s.impacts[0].at,batch=[];
   while(s.impacts.length&&s.impacts[0].at<=at+1e-7)batch.push(s.impacts.shift());
   const eligible=batch.filter(h=>!disallowedShot(s,h));
@@ -191,40 +191,37 @@ function stepProjectile(s,b,world,dt){
   }
  }
 }
-function advanceStep(s,world,nav,dt,now){
+function advanceProjectiles(s,world,dt){
+ for(const b of s.projectiles){
+  if(!s.players.some(p=>p.id===b.owner)){b.life=0;continue;}
+  b.simAt??=s.time-dt;b.fireAt??=b.simAt;b.ownerLife??=s.players.find(p=>p.id===b.owner)?.life;
+  let budget=80;
+  while(b.life>0&&b.simAt<s.time-1e-7&&budget-->0)stepProjectile(s,b,world,Math.min(dt,s.time-b.simAt));
+ }
+ s.projectiles=s.projectiles.filter(b=>b.life>0).slice(-400);
+}
+export function finishArenaUpdate(s,now){if(s.status!=='playing')return;advanceProjectiles(s,worldFor(s.map),STEP);settleImpacts(s);judgeRound(s,now);}
+function advanceStep(s,world,nav,dt,now,settle=true){
  s.time+=dt;
  for(const p of s.players){
   if(!p.alive){if(s.time>=p.respawnAt)respawn(s,p);continue;}
   const c=CLASSES[p.class],i=p.bot?botInput(s,p,world,nav,dt):now-p.inputAt>350?neutral():{...p.input,...p.pendingEdges};p.pendingEdges={};
   if(!p.bot&&now-p.inputAt<=350){p.yaw=i.yaw;p.pitch=i.pitch;}
-  for(const key of ['cooldown','dashCooldown','dashTime','ability','field','shield','recoil','fireBuffer'])p[key]=Math.max(0,p[key]-dt*(key==='recoil'?5:1));
+  for(const key of ['cooldown','ability','field','shield','recoil','fireBuffer'])p[key]=Math.max(0,p[key]-dt*(key==='recoil'?5:1));
   if(p.reload>0){p.reload=Math.max(0,p.reload-dt);if(p.reload===0)p.ammo[p.weapon]=WEAPONS[p.weapon].mag;}
   if(i.weapon!==null&&[0,c.weapon].includes(i.weapon)&&i.weapon!==p.weapon){p.weapon=i.weapon;p.reload=0;p.cooldown=.18;p.switchReady=s.time+.18;p.fireBuffer=0;p.ads=0;}
   if(i.reload&&p.reload===0&&p.ammo[p.weapon]<WEAPONS[p.weapon].mag){p.reload=WEAPONS[p.weapon].reload;p.fireBuffer=0;}
   if(i.timePressed&&p.energy>=50&&p.field<=0){p.field=3;p.energy-=50;}
   p.energy=Math.min(100,p.energy+dt*5);
   if(i.use&&p.class==='engineer'&&p.ability<=0){s.stations=s.stations.filter(v=>v.owner!==p.id);s.stations.push({owner:p.id,team:p.team,x:p.x,z:p.z,life:10});p.ability=22;}
-  let mx=i.x||0,mz=i.z||0,n=Math.hypot(mx,mz);if(n>1){mx/=n;mz/=n;}p.moving=n>.01;
-  if(i.dash&&p.dashCooldown<=0&&p.moving){p.dashTime=.15;p.dashCooldown=2.4;}
-  const speed=(p.dashTime>0?23:c.speed*(i.sprint?1.3:1))*(i.aim?.65:1),sin=Math.sin(p.yaw),cos=Math.cos(p.yaw);
-  moveBody(p,(mx*cos+mz*sin)*speed*dt,(mx*sin-mz*cos)*speed*dt,world.solids);
-  if(i.jump&&p.grounded){p.vy=7.5;p.grounded=false;}
-  const previous=p.y;p.vy-=19*dt;p.y+=p.vy*dt;let ground=0;
-  for(const b of world.solids)if(p.x+.3>b.min[0]&&p.x-.3<b.max[0]&&p.z+.3>b.min[2]&&p.z-.3<b.max[2]&&previous>=b.max[1]-.05&&p.y<=b.max[1])ground=Math.max(ground,b.max[1]);
-  if(p.y<=ground){p.y=ground;p.vy=0;p.grounded=true;}
+  advanceMotion(p,i,c,dt,world.solids);
   p.ads=clamp(p.ads+(i.aim&&!p.reload?1:-1)*dt*8,0,1);
   if(i.firePressed&&!p.reload)p.fireBuffer=.15;
   if((p.bot||p.protocol!==2)&&(i.fire||p.fireBuffer>0))shoot(s,p,i);
   if(!p.bot)for(const key of ['firePressed','jump','dash','reload','timePressed','use'])p.input[key]=false;
  }
  recordHistory(s);
- for(const b of s.projectiles){
-  if(!s.players.some(p=>p.id===b.owner)){b.life=0;continue;}
-  b.simAt??=s.time-dt;b.fireAt??=b.simAt;b.ownerLife??=s.players.find(p=>p.id===b.owner)?.life;
-  let budget=32;
-  while(b.life>0&&b.simAt<s.time-1e-7&&budget-->0)stepProjectile(s,b,world,Math.min(dt,s.time-b.simAt));
- }
- s.projectiles=s.projectiles.filter(b=>b.life>0).slice(-400);settleImpacts(s);
+ advanceProjectiles(s,world,dt);if(settle)settleImpacts(s);
  for(const station of s.stations){station.life-=dt;for(const p of s.players)if(p.alive&&(s.mode==='dm'?p.id===station.owner:p.team===station.team)&&distance(p,station)<5){const v=[p.x-station.x,0,p.z-station.z],d=Math.hypot(...v);if(firstWall([station.x,1,station.z],v.map(n=>n/Math.max(.01,d)),world.solids,d)>=d-.05)p.health=Math.min(CLASSES[p.class].health,p.health+dt*9);}}
  s.stations=s.stations.filter(v=>v.life>0);
  if(s.mode==='dom'){
@@ -236,14 +233,18 @@ function advanceStep(s,world,nav,dt,now){
   }
   s.domTick+=dt;if(s.domTick>=1){s.domTick-=1;for(const n of s.nodes)if(n.owner!==null&&!n.contested)s.scores[n.owner]++;}
  }
+ if(settle)judgeRound(s,now);
+}
+function judgeRound(s,now){
+ if(s.status!=='playing')return;
  const leader=s.players.slice().sort((a,b)=>b.kills-a.kills)[0],limitHit=s.mode==='dm'?leader.kills>=s.limit:Math.max(...s.scores)>=s.limit;
  if(limitHit||s.time>=300+(s.networked?NET.settle:0)){s.status='finished';s.finishAt=now;s.winner=s.mode==='dm'?leader.id:s.scores[0]===s.scores[1]?'draw':s.scores[0]>s.scores[1]?0:1;}
 }
-export function advanceArena(s,now){
+export function advanceArena(s,now,{settle=true}={}){
  for(const p of s.players)if(!p.bot&&now-p.lastSeen>12000)leaveArena(s,p.id);
  if(s.status!=='playing'){s.at=now;return;}
  const elapsed=clamp((now-s.at)/1000,0,.25);if(elapsed<=0)return;const world=worldFor(s.map),nav=new Navigation(s.map),count=Math.floor((elapsed+1e-10)/STEP);
- for(let i=0;i<count&&s.status==='playing';i++)advanceStep(s,world,nav,STEP,now);
+ for(let i=0;i<count&&s.status==='playing';i++)advanceStep(s,world,nav,STEP,now,settle);
  s.at=now-Math.max(0,elapsed-count*STEP)*1000;
 }
 export function restartArena(s,now){
@@ -253,5 +254,5 @@ export function restartArena(s,now){
 }
 export function arenaSnapshot(s,id,includeMap=false){
  const own=s.players.find(p=>p.id===id);return {revision:s.revision??0,networked:!!s.networked,shotResults:own?.net?.results??[],actionAck:own?.net?.commands??[],clock:own?.net?.receipts.at(-1),mode:s.mode,slots:s.slots,round:s.round,time:s.time,status:s.status,winner:s.winner,scores:s.scores,limit:s.limit,you:id,ack:own?.seq??-1,map:includeMap?s.map:undefined,nodes:s.nodes,stations:s.stations,projectiles:s.projectiles,events:s.events,
- players:s.players.map(p=>({id:p.id,life:p.life,name:p.name,bot:p.bot,team:p.team,class:p.class,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,health:p.health,alive:p.alive,kills:p.kills,deaths:p.deaths,weapon:p.weapon,ads:p.ads,recoil:p.recoil,shield:p.shield,field:p.field,moving:p.moving,respawnIn:Math.max(0,p.respawnAt-s.time),...(p.id===id?{energy:p.energy,ammo:p.ammo,reload:p.reload,cooldown:p.cooldown,ability:p.ability,dashCooldown:p.dashCooldown,vy:p.vy,grounded:p.grounded}:{} )}))};
+ players:s.players.map(p=>({id:p.id,life:p.life,name:p.name,bot:p.bot,team:p.team,class:p.class,x:p.x,y:p.y,z:p.z,yaw:p.yaw,pitch:p.pitch,health:p.health,alive:p.alive,kills:p.kills,deaths:p.deaths,weapon:p.weapon,ads:p.ads,recoil:p.recoil,shield:p.shield,field:p.field,moving:p.moving,respawnIn:Math.max(0,p.respawnAt-s.time),...(p.id===id?{energy:p.energy,ammo:p.ammo,reload:p.reload,cooldown:p.cooldown,ability:p.ability,dashCooldown:p.dashCooldown,dashTime:p.dashTime,vy:p.vy,grounded:p.grounded}:{} )}))};
 }

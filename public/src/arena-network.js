@@ -1,6 +1,7 @@
 // Bounded, server-owned timing and pose history. No client positions or hits are accepted.
 import {clamp} from './math.js';
 export const NET={interval:50,maxInFlight:6,shotAge:.2,viewAge:.25,settle:.25,history:.65,interpolation:.05};
+export const shotBudget=half=>Math.min(NET.shotAge,(half+NET.interval+25)/1000);
 const pose=p=>({id:p.id,life:p.life,x:p.x,y:p.y,z:p.z,yaw:p.yaw,team:p.team,alive:p.alive,shield:p.shield,field:p.field,weapon:p.weapon,reload:p.reload});
 export function recordHistory(s,force=false){
  if(!s.networked)return;
@@ -26,7 +27,7 @@ export function historicalPose(s,id,time){
 }
 export function playerNetwork(p){return p.net??={receipts:[],samples:[],seen:[],results:[],commands:[],rtt:0};}
 export function issueReceipt(s,p,now,id){
- const n=playerNetwork(p),r={id,sentAt:now,time:s.time,round:s.round,life:p.life};
+ const n=playerNetwork(p),r={id,sentAt:now,time:s.time,round:s.round,life:p.life,budget:n.samples.length?shotBudget(Math.min(125,n.rtt/2)):NET.shotAge};
  n.receipts.push(r);n.receipts=n.receipts.filter(q=>now-q.sentAt<2000).slice(-32);return r;
 }
 export function measureTiming(p,timing,now){
@@ -44,7 +45,7 @@ export function validateShot(s,p,shot,now){
  const half=r.half??Math.min(125,n.rtt/2),serverAt=r.sentAt+half+shot.elapsedMs,age=(now-serverAt)/1000;
  // Credit follows measured RTT plus one send interval and 25 ms jitter allowance.
  // A low-ping player cannot simply request the entire global rewind window.
- const budget=Math.min(NET.shotAge,(half+NET.interval+25)/1000);
+ const budget=Math.min(r.budget??NET.shotAge,shotBudget(half));
  if(age<-.012||age>budget+1e-6)return {reason:'late-shot'};
  // s.at is the wall-clock instant of the last fixed tick; using request time here
  // would add a changing sub-tick error and reject legitimate automatic fire.
@@ -57,6 +58,17 @@ export function validateShot(s,p,shot,now){
 }
 export function rememberShot(p,id,reason){
  const n=playerNetwork(p);n.seen.push(id);n.seen=n.seen.slice(-128);n.results.push({id,reason});n.results=n.results.slice(-64);
+}
+export function confirmationTime(s,impactAt){
+ let deadline=impactAt+.025;
+ // Honor every outstanding receipt that could still authorize an earlier shot.
+ // Newer receipts cannot authorize firing before their own server-issued time.
+ for(const p of s.players)if(!p.bot)for(const r of p.net?.receipts||[]){
+  if(r.round!==s.round||r.life!==p.life||r.time>impactAt+1e-7)continue;
+  const latestFire=Math.min(impactAt,r.time+NET.viewAge);
+  deadline=Math.max(deadline,latestFire+(r.budget??NET.shotAge)+.02);
+ }
+ return deadline;
 }
 // Timestamped interpolation, with no invented positions across deaths or respawns.
 export function interpolatePlayers(frames,time){

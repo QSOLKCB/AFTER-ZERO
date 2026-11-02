@@ -39,7 +39,7 @@ async function readBody(req) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, maxRequests = 600, maxInFlight = 32, log = console.error}) {
+export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, maxRequests = 700, maxInFlight = 32, log = console.error}) {
   if (!databasePath) throw Error('ARENA_DB_PATH is required.');
   const origins = parseOrigins(allowedOrigins);
   if (!origins.size) throw Error('At least one allowed origin is required.');
@@ -89,7 +89,7 @@ export function createArenaServer({databasePath, allowedOrigins, maxRooms = 2, m
       if (!session) {
         for (const [key, value] of sessions) if (now - value.lastSeen > 60000) sessions.delete(key);
         if (sessions.size >= 1024) return reply(503, {error: 'Server session limit reached. Please retry.'});
-        sessions.set(hash, session = {allow: bucket(40, 20), lastSeen: now});
+        sessions.set(hash, session = {allow: bucket(60, 30), lastSeen: now});
       }
       session.lastSeen = now;
       if (!session.allow()) return reply(429, {error: 'Player request limit reached. Please retry.'}, {'Retry-After': '1'});

@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DatabaseSync} from 'node:sqlite';
+import {openStore} from '../server/sqlite-store.mjs';
 import {readFileSync} from 'node:fs';
 import {handleArena} from '../server/arena-api.js';
 import {recordHistory} from '../public/src/arena-network.js';
 import {emptyMap} from '../public/src/maps.js';
-function database(){const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../drizzle/0000_moaning_karnak.sql',import.meta.url),'utf8'));let conflict=false;
- return {sqlite,set conflict(v){conflict=v;},prepare(sql){let values=[];return {bind(...args){values=args;return this;},async first(){return sqlite.prepare(sql).get(...values)||null;},async run(){if(conflict&&sql.startsWith('UPDATE')){conflict=false;return {meta:{changes:0}};}const r=sqlite.prepare(sql).run(...values);return {meta:{changes:Number(r.changes)}};}};}};}
+import {claimArena,persistArena,releaseArena} from '../server/arena-coordinator.js';
+function database(){const DB=openStore(':memory:');let conflict=false;const batch=DB.batch.bind(DB);
+ DB.batch=async statements=>{const adjusted=statements.map(stmt=>{if(conflict&&stmt.sql.startsWith('UPDATE arena_rooms SET data=')){conflict=false;return DB.prepare(stmt.sql+' AND 0').bind(...stmt.values);}return stmt;});return batch(adjusted);};
+ Object.defineProperty(DB,'conflict',{set(v){conflict=v;}});return DB;}
 const token1='ab'.repeat(32),token2='cd'.repeat(32),token3='ef'.repeat(32);
 async function call(DB,body,now=1000,origin='https://arena.test'){const r=await handleArena(new Request('https://arena.test/api/arena',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)}),{DB},now);return {status:r.status,body:await r.json()};}
 test('two independent human sessions share one server room; credentials never appear in snapshots',async()=>{
@@ -47,4 +49,46 @@ test('timed shots survive persisted CAS retries and timing receipts are private 
  const otherDB=database(),room=await call(otherDB,{action:'create',token:token1}),joined=await call(otherDB,{action:'join',token:token2,code:room.body.code});
  const forged=await call(otherDB,{action:'sync',token:token2,code:room.body.code,seq:1,input:{},timing:{protocol:2,shots:[{...shot,receipt:room.body.snapshot.clock.id}]}},1100);
  assert.equal(forged.body.snapshot.shotResults[0].reason,'expired-clock');assert.notEqual(joined.body.snapshot.clock.id,room.body.snapshot.clock.id);DB.sqlite.close();otherDB.sqlite.close();
+});
+
+test('six overlapping requests queue behind one writer without a CAS retry storm',async()=>{
+ const DB=database(),created=await call(DB,{action:'create',token:token1,options:{slots:8}}),code=created.body.code;
+ const batch=DB.batch.bind(DB);let writes=0;
+ DB.batch=async statements=>{await new Promise(resolve=>setTimeout(resolve,15));writes+=statements.filter(s=>s.sql.startsWith('UPDATE arena_rooms SET data=')).length;return batch(statements);};
+ const results=await Promise.all(Array.from({length:6},(_,i)=>call(DB,{action:'sync',token:token1,code,seq:i+1,input:{x:i===5?0:1}},1100)));
+ assert(results.every(r=>r.status===200));assert(results.some(r=>r.body.queued));assert(writes<=2,`only ${writes} simulation commits attempted`);
+ const settled=await call(DB,{action:'sync',token:token1,code,seq:7,input:{}},1200);assert.equal(settled.body.snapshot.ack,7);
+ assert.equal(DB.sqlite.prepare('SELECT count(*) AS n FROM arena_commands').get().n,0);DB.close();
+});
+
+test('expired writers cannot overwrite their successor or consume its queued commands',async()=>{
+ const DB=database(),created=await call(DB,{action:'create',token:token1}),code=created.body.code,id=created.body.snapshot.you;
+ const state=JSON.parse(DB.sqlite.prepare('SELECT data FROM arena_rooms WHERE code=?').get(code).data),hash=state.sessions[id];
+ const args={code,playerId:id,hash,body:{action:'sync',seq:1,input:{}}};
+ const old=await claimArena(DB,{...args,now:1100});assert(old.claimed);
+ const next=await claimArena(DB,{...args,body:{...args.body,seq:2},now:2700});assert(next.claimed);
+ state.revision=1;assert.equal(await persistArena(DB,{code,lease:old.lease,revision:0,state,commands:old.commands,now:1100}),false);
+ assert.equal(DB.sqlite.prepare('SELECT count(*) AS n FROM arena_commands').get().n,2);
+ await releaseArena(DB,code,old.lease);assert.equal(DB.sqlite.prepare('SELECT lease_id FROM arena_rooms WHERE code=?').get(code).lease_id,next.lease);
+ await releaseArena(DB,code,next.lease);DB.close();
+});
+
+test('a writer cannot delete an eligible command inserted after its read; inbox size is bounded',async()=>{
+ const DB=database(),created=await call(DB,{action:'create',token:token1}),code=created.body.code,id=created.body.snapshot.you;
+ const state=JSON.parse(DB.sqlite.prepare('SELECT data FROM arena_rooms WHERE code=?').get(code).data),hash=state.sessions[id];
+ const args={code,playerId:id,hash,now:1100};const owner=await claimArena(DB,{...args,body:{action:'sync',seq:1,input:{}}});
+ for(let i=2;i<20;i++)await claimArena(DB,{...args,body:{action:'sync',seq:i,input:{jump:true}}});
+ assert.equal(DB.sqlite.prepare('SELECT count(*) AS n FROM arena_commands').get().n,8);
+ state.revision=1;assert.equal(await persistArena(DB,{code,lease:owner.lease,revision:0,state,commands:owner.commands,now:1100}),false);
+ assert.equal(DB.sqlite.prepare('SELECT count(*) AS n FROM arena_commands').get().n,8);
+ const forged=await call(DB,{action:'sync',token:token2,code,seq:40,input:{}},1100);assert.equal(forged.status,401);
+ assert.equal(DB.sqlite.prepare('SELECT count(*) AS n FROM arena_commands').get().n,8);await releaseArena(DB,code,owner.lease);DB.close();
+});
+
+test('polling a finished round does not move its restart deadline',async()=>{
+ const DB=database(),created=await call(DB,{action:'create',token:token1}),code=created.body.code;
+ const state=JSON.parse(DB.sqlite.prepare('SELECT data FROM arena_rooms WHERE code=?').get(code).data);state.status='finished';state.finishAt=1000;state.time=300.25;
+ DB.sqlite.prepare('UPDATE arena_rooms SET data=? WHERE code=?').run(JSON.stringify(state),code);
+ for(let i=1;i<13;i++){const result=await call(DB,{action:'sync',token:token1,code,seq:i,input:{}},1000+i*1000);assert.equal(result.status,200);assert.equal(result.body.snapshot.round,i===12?2:1);}
+ DB.close();
 });

@@ -15,7 +15,7 @@ This is an optional, separate deployment of the existing arena simulation. The S
 | Initial room limit | Two simultaneous rooms, each retaining the existing 8/12/16 slots |
 | Automatic deployment | Off |
 
-Published pricing checked on 3 November 2026: US$7/month compute plus US$0.25/month for a 1 GB disk. This is a US$7.25/month resource baseline, excluding workspace charges, excess usage, taxes and currency conversion. The current account's workspace/billing settings have not been inspected because no workspace is confirmed. Check the Dashboard quote before applying.
+Published pricing reference: US$7/month compute plus US$0.25/month for a 1 GB disk. This is a US$7.25/month resource baseline, excluding workspace charges, excess usage, taxes and currency conversion. The current account's workspace/billing settings have not been inspected because no workspace is confirmed. Check the Dashboard quote before applying.
 
 The selected small plan is a starting configuration, not a measured player-capacity guarantee. This disk architecture supports one instance and briefly interrupts connections during deployment. If a restart lasts beyond the game's 12-second session timeout, players must rejoin. Rooms expire after 20 minutes without requests. Multi-instance scaling would require different storage and room coordination.
 
@@ -33,13 +33,13 @@ The backend listens on `0.0.0.0:$PORT` (default 10000). `GET /healthz` reports l
 
 `ALLOWED_ORIGINS` contains comma-separated origins, without paths or trailing slashes. HTTPS is required except for explicit localhost development origins. Production permits the GitHub Pages origin and the existing Sites origin. No wildcard or credentialed CORS is enabled. Caller-supplied Sites, Cloudflare and forwarding identity headers are discarded; anonymous sessions share the API's server-side owner bucket. CORS is not authentication: possession of a valid player token establishes the existing anonymous player session.
 
-The adapter bounds bodies to 125,000 bytes, admits at most 32 concurrent requests and 600 requests/second globally, and applies a per-session token bucket. SQLite writes and capacity checks are serialized. At most 1,024 recent session rate-limit entries are retained. `MAX_ACTIVE_ROOMS` can be set from one to six; raising it requires measuring CPU, latency and bandwidth on the real service. HTTP clients can forge origins and create tokens; these are resource limits, not an account or anti-cheat identity system.
+The adapter bounds bodies to 125,000 bytes, admits at most 32 concurrent requests and 700 requests/second globally, and applies a per-session token bucket of 30 requests/second with a 60-request burst allowance. SQLite writes and capacity checks are serialized. At most 1,024 recent session rate-limit entries are retained. `MAX_ACTIVE_ROOMS` can be set from one to six; raising it requires measuring CPU, latency and bandwidth on the real service. HTTP clients can forge origins and create tokens; these are resource limits, not an account or anti-cheat identity system.
 
 ## Deployment and frontend cutover
 
 1. Review and merge the source/adapter PR. Confirm the intended Render workspace and paid resource quote. No service is created by committing this file.
 2. Create a Blueprint using the repository's `render.yaml` on `main`. Check for an existing `afterzero-arena` service before applying; do not accidentally adopt another service with that name. Keep automatic deployment off.
-3. Let the startup process initialize the schema after the disk is mounted. Build and pre-deploy jobs must not access the persistent disk.
+3. Let the startup process apply unapplied migrations from the Drizzle journal after the disk is mounted. Schema version 2 adds the bounded input inbox and room lease; existing version-1 room data is preserved. Build and pre-deploy jobs must not access the persistent disk.
 4. Verify `/readyz` and two independent clients against the real public endpoint, including browser preflight, all game modes and restart recovery. Measure actual CPU, memory, response latency and egress before opening more rooms.
 5. Set the GitHub Actions repository variable `ARENA_API_URL` to the returned HTTPS URL plus `/api/arena`. This is a public endpoint, not a secret. Run the Pages workflow; it validates and embeds this value in the static artifact. Do not invent an onrender.com hostname before Render returns it.
 

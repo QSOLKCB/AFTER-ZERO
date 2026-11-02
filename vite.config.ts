@@ -61,6 +61,7 @@ export default defineConfig(async ({ command }) => {
         inspectorPort: false,
         config: {
           ...localBindingConfig,
+          ...(command === "build" ? { placement: { mode: "smart" as const } } : {}),
           ...(command === "serve"
             ? {
                 services: [

@@ -93,9 +93,9 @@ Q spends 50 energy to deploy a three-second, nine-metre chronal field. **All tra
 
 Real players need access to the Site as well as the room code. Publication preserves the owner's existing Site audience; a room code does not grant Site access. No chat, friend invites, ranked matchmaking or cross-room progression is implemented. Room state expires after 20 minutes without requests; inactive human sessions become bots after 12 seconds. Browser reload starts a fresh player session.
 
-The server owns simulation, positions, damage, ammo, scoring and team assignment. Inputs use sequence numbers; independently acknowledged shot/action IDs survive retries and reordered packets. D1 compare-and-swap revisions prevent concurrent writes from advancing the same room twice. Clients send every 50 ms without waiting for the previous response (at most six outstanding requests), predict local movement and firing feedback, and interpolate timestamped remote poses.
+The server owns simulation, positions, damage, ammo, scoring and team assignment. Inputs use sequence numbers; independently acknowledged shot/action IDs survive retries and reordered packets. A short D1 room lease lets one writer consume a bounded input inbox; other requests queue their inputs and read the latest committed snapshot. Revision and lease checks prevent stale writers from publishing or deleting new inputs. Clients send every 50 ms without waiting for the previous response (at most six outstanding requests), flush shots/actions sooner, replay recent movement over authoritative corrections, and predict jump, dash and firing feedback immediately. Remote poses interpolate on a clock that never moves backward.
 
-Online hit compensation retains 650 ms of server pose history. Server-issued per-player timing receipts and measured round trips bound shot timestamps: at most 200 ms of shot age and 250 ms of target-view rewind, with tighter credit for low-ping players. Travelling rounds catch up through historical hit volumes and chronal fields; walls still block them. Damage settles after a common 250 ms window in impact-time order. A shot fired after an earlier lethal impact cannot score; rounds already in flight can trade. These are impact-time rules, so the first trigger press does not necessarily win if its projectile has farther to travel.
+Online hit compensation retains 650 ms of server pose history. Server-issued per-player timing receipts and measured round trips bound shot timestamps: at most 200 ms of shot age and 250 ms of target-view rewind, with tighter credit for low-ping players. Travelling rounds catch up through historical hit volumes and chronal fields; walls still block them. Damage settles in impact-time order once outstanding timing receipts can no longer authorize an earlier shot. Calibrated simulations with 30/90/200 ms RTT use 110/140/195 ms confirmation windows respectively, replacing the fixed 250 ms wait; actual receipt age and mixed-player latency affect the window. A shot fired after an earlier lethal impact cannot score; rounds already in flight can trade. These are impact-time rules, so the first trigger press does not necessarily win if its projectile has farther to travel.
 
 The [network verification notes](docs/NETCODE.md) describe tested 30/90/200 ms cases and limits. Severe lag, asymmetric routes, packet loss and server overload cannot be made perfectly fair. This is still a small-room HTTP server advanced by requests; no geographically distributed or capacity playtest is claimed. Confirmed hit/death feedback is deliberately delayed; local muzzle feedback stays immediate. Health, ammo and scores remain authoritative.
 
@@ -108,7 +108,7 @@ For the complete game, use the maintained Sites Worker build with the `DB` D1 bi
 npm test
 npm run check
 npm run build
-# Apply drizzle/0000_moaning_karnak.sql to the local DB once, then:
+# Apply each unapplied drizzle migration in journal order, then:
 npm run dev
 ```
 
@@ -116,6 +116,7 @@ Local D1 setup after building:
 
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_moaning_karnak.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_yummy_black_crow.sql
 ```
 
 Hosted publication applies schema migrations through Sites. Do not replay an already-applied local migration. Source lives in `public/`, `server/` and `app/`; generated `dist/` is the deployment artifact. The source ZIP includes a sanitized manifest without the original Site ID or credentials.
@@ -158,4 +159,4 @@ Weapon handling takes conceptual inspiration from LibreQuake’s held attack and
 - `public/src/aim.js`, `controls.js`, `sights.js`: unified aim, held input and original screen-space optics.
 - `public/src/arena-sim.js`: shared arena rules, classes and AI; only the server advances authoritative state.
 - `public/src/arena-client.js`, `arena-ui.js`: online room transport, prediction, lobbies and scores.
-- `server/arena-api.js`, `db/schema.ts`, `drizzle/`: authenticated player sessions, optimistic room updates and schema.
+- `server/arena-api.js`, `arena-coordinator.js`, `db/schema.ts`, `drizzle/`: authenticated sessions, leased room updates, bounded input inbox and schema.

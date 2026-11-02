@@ -9,11 +9,12 @@ export function roster(target,s){
 }
 export function arenaScore(s){return s.mode==='dm'?`LEADER ${Math.max(...s.players.map(p=>p.kills))} / ${s.limit}`:`CYAN ${s.scores[0]} : ${s.scores[1]} MAGENTA / ${s.limit}`;}
 export function setupArena({editor,canPlay,onEnter,onLeave,onEvent,onLost}){
- let selected='assault',client=null,busy=false,lastError='';
+ let selected='assault',client=null,busy=false,lastError='',lastPaint=-Infinity;
  for(const [key,c] of Object.entries(CLASSES)){const b=document.createElement('button');b.className='class-card';b.dataset.class=key;const small=document.createElement('small');small.textContent=`0${Object.keys(CLASSES).indexOf(key)+1} / CLASS`;const strong=document.createElement('strong');strong.textContent=c.name;const role=document.createElement('p');role.textContent=c.role;const stats=document.createElement('b');stats.textContent=`${c.health} HP / ${c.speed.toFixed(1)} M/S`;b.append(small,strong,role,stats);b.onclick=()=>{selected=key;syncClasses();};$('#class-grid').append(b);}
  function syncClasses(){for(const b of document.querySelectorAll('[data-class]')){b.classList.toggle('selected',b.dataset.class===selected);b.setAttribute('aria-pressed',String(b.dataset.class===selected));}$('#class-description').textContent=CLASSES[selected].role;}
  syncClasses();
  function update(c){
+  const now=performance.now();if(c.active&&now-lastPaint<250)return;lastPaint=now;
   const s=c.snapshot;$('#arena-setup').hidden=true;$('#arena-room').hidden=false;$('#room-code').textContent=c.code;$('#room-mode').textContent=MODES[s.mode];$('#room-summary').textContent=`${s.players.filter(p=>!p.bot).length} HUMANS / ${s.players.filter(p=>p.bot).length} AI · ROUND ${s.round}`;$('#room-score').textContent=arenaScore(s);roster($('#room-roster'),s);roster($('#arena-board-rows'),s);
   $('#arena-status').textContent=c.error||c.shotWarning||`${s.status==='finished'?'ROUND COMPLETE / next round begins shortly':'CONNECTED'} · ${c.latency} ms round trip · ${Math.max(0,300-Math.floor(s.time))}s remaining`;
   $('#arena-enter').disabled=!canPlay()||!c.active;$('#arena-gpu').hidden=canPlay();

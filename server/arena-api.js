@@ -1,5 +1,6 @@
-import {createArena,joinArena,leaveArena,acceptInput,advanceArena,restartArena,arenaSnapshot,classKey} from '../public/src/arena-sim.js';
+import {createArena,joinArena,leaveArena,acceptInput,advanceArena,restartArena,arenaSnapshot,classKey,finishArenaUpdate} from '../public/src/arena-sim.js';
 import {issueReceipt,recordHistory} from '../public/src/arena-network.js';
+import {claimArena,persistArena,readCommands,releaseArena} from './arena-coordinator.js';
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),n=>n.toString(16).padStart(2,'0')).join('');
 async function readBody(request){
@@ -20,33 +21,48 @@ export async function handleArena(request,env,now=Date.now()){
    const code=hash.slice(20,28).toUpperCase(),prior=await env.DB.prepare('SELECT data FROM arena_rooms WHERE code = ? AND expires > ?').bind(code,now).first();
    if(prior){const state=JSON.parse(prior.data);return json({code,snapshot:arenaSnapshot(state,playerId,true)});}
    const owner=await digest(request.headers.get('oai-authenticated-user-id')||request.headers.get('CF-Connecting-IP')||'local');
-   await env.DB.prepare('DELETE FROM arena_rooms WHERE expires < ?').bind(now).run();
+   await env.DB.batch([env.DB.prepare('DELETE FROM arena_rooms WHERE expires < ?').bind(now),env.DB.prepare('DELETE FROM arena_commands WHERE received < ?').bind(now-2000)]);
    const count=await env.DB.prepare('SELECT COUNT(*) AS n FROM arena_rooms WHERE owner = ?').bind(owner).first();if(count.n>=6)return json({error:'Six rooms are already active. Rejoin one, or let an unused room expire in 20 minutes.'},429);
    const state=createArena({...body.options,networked:true},now),player=joinArena(state,{id:playerId,name,kind},now);state.sessions={[playerId]:hash};state.revision=0;issueReceipt(state,player,now,crypto.randomUUID());
    await env.DB.prepare('INSERT INTO arena_rooms (code, revision, data, owner, expires) VALUES (?, 0, ?, ?, ?)').bind(code,JSON.stringify(state),owner,now+1200000).run();
    return json({code,snapshot:arenaSnapshot(state,playerId,true)},201);
   }
   const code=String(body.code||'').trim().toUpperCase();if(!/^[A-F0-9]{8}$/.test(code))return json({error:'Enter the eight-character room code.'},400);
-  for(let attempt=0;attempt<6;attempt++){
-   const row=await env.DB.prepare('SELECT revision, data FROM arena_rooms WHERE code = ? AND expires > ?').bind(code,now).first();if(!row)return json({error:'Room not found or expired. Create a new room.'},404);
-   const state=JSON.parse(row.data);state.networked=true;state.impacts??=[];state.deathTimes??=[];for(const p of state.players)p.life??=1;recordHistory(state);advanceArena(state,now);if(state.status==='finished'&&now-state.finishAt>=12000)restartArena(state,now);
-   let p=state.players.find(p=>p.id===playerId&&!p.bot);
-   if(action==='join'){
-    if(!p){p=joinArena(state,{id:playerId,name,kind},now);state.sessions[playerId]=hash;}
-    else p.lastSeen=now;
-   }else{
-    if(!p||state.sessions[playerId]!==hash)return json({error:'Player session expired. Join the room again.'},401);
-    if(action==='leave'){leaveArena(state,playerId);delete state.sessions[playerId];}
-    else if(action==='class'){p.class=kind;p.health=0;p.alive=false;p.respawnAt=state.time+3;p.lastSeen=now;}
-    else acceptInput(state,playerId,body.input,body.seq,now,body.timing);
+  const claim=await claimArena(env.DB,{code,playerId,hash,body,now});
+  if(!claim.row)return json({error:'Room not found or expired. Create a new room.'},404);
+  const initial=JSON.parse(claim.row.data),member=initial.players.find(p=>p.id===playerId&&!p.bot);let released=false;
+  try{
+   if(action!=='join'&&(!member||initial.sessions[playerId]!==hash))return json({error:'Player session expired. Join the room again.'},401);
+   if(!claim.claimed)return action==='sync'?json({code,snapshot:arenaSnapshot(initial,playerId),queued:true}):json({error:'Room update in progress. Please retry.'},409);
+   let commands=claim.commands;
+   for(let attempt=0;attempt<2;attempt++){
+    const state=structuredClone(initial);state.networked=true;state.impacts??=[];state.deathTimes??=[];for(const p of state.players)p.life??=1;recordHistory(state);
+    // One leased writer consumes every player's inputs in arrival order. A fixed
+    // update budget prevents a stalled room from doing unbounded catch-up work.
+    state.at=Math.max(state.at,now-250);
+    for(const command of commands){
+     advanceArena(state,Math.max(state.at,command.received),{settle:false});
+     const p=state.players.find(p=>p.id===command.player&&!p.bot);if(!p||!state.sessions[p.id])continue;
+     const v=JSON.parse(command.command);acceptInput(state,p.id,v.input,command.seq,state.at,v.timing,command.received);
+    }
+    advanceArena(state,now,{settle:false});finishArenaUpdate(state,now);
+    if(state.status==='finished'&&now-state.finishAt>=12000)restartArena(state,now);
+    let p=state.players.find(p=>p.id===playerId&&!p.bot);
+    if(action==='join'){
+     if(!p){p=joinArena(state,{id:playerId,name,kind},now);state.sessions[playerId]=hash;}else p.lastSeen=now;
+    }else{
+     if(!p||state.sessions[playerId]!==hash)return json({error:'Player session expired. Join the room again.'},401);
+     if(action==='leave'){leaveArena(state,playerId);delete state.sessions[playerId];}
+     else if(action==='class'){p.class=kind;p.health=0;p.alive=false;p.respawnAt=state.time+3;p.lastSeen=now;}
+    }
+    for(const id of Object.keys(state.sessions))if(!state.players.some(p=>p.id===id&&!p.bot))delete state.sessions[id];
+    state.revision=claim.row.revision+1;
+    for(const player of state.players)if(!player.bot)issueReceipt(state,player,now,crypto.randomUUID());
+    if(await persistArena(env.DB,{code,lease:claim.lease,revision:claim.row.revision,state,commands,now})){released=true;return json(action==='leave'?{left:true}:{code,snapshot:arenaSnapshot(state,playerId,action==='join')});}
+    commands=await readCommands(env.DB,code,now);
    }
-   // Prune departed sessions. Only opaque hashes are persisted; none enter snapshots.
-   for(const id of Object.keys(state.sessions))if(!state.players.some(p=>p.id===id&&!p.bot))delete state.sessions[id];
-   state.revision=row.revision+1;if(action!=='leave')issueReceipt(state,p,now,crypto.randomUUID());
-   const result=await env.DB.prepare('UPDATE arena_rooms SET data = ?, revision = revision + 1, expires = ? WHERE code = ? AND revision = ?').bind(JSON.stringify(state),now+1200000,code,row.revision).run();
-   if(result.meta.changes===1)return json(action==='leave'?{left:true}:{code,snapshot:arenaSnapshot(state,playerId,action==='join')});
-  }
-  return json({error:'Room is busy. Retrying…'},409);
+   return json({error:'Room update interrupted. Please retry.'},409);
+  }finally{if(claim.claimed&&!released)await releaseArena(env.DB,code,claim.lease);}
  }catch(error){
   const safe=/full|distinct objective|Expected an AFTER|boundary|Invalid|Unknown|unreachable|floor|Request too large|JSON|session expired|Name must|share a tile|rectangular|finite facing|list/.test(error.message);
   return json({error:safe?error.message:'Arena request failed. Please retry.'},safe?400:500);

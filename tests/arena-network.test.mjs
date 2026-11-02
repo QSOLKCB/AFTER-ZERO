@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createArena,acceptInput,advanceArena,respawn,arenaSnapshot} from '../public/src/arena-sim.js';
-import {NET,recordHistory,issueReceipt,historicalPose,interpolatePlayers} from '../public/src/arena-network.js';
+import {NET,recordHistory,issueReceipt,historicalPose,interpolatePlayers,confirmationTime,measureTiming} from '../public/src/arena-network.js';
+import {advanceMotion,replayMotion} from '../public/src/arena-motion.js';
 import {ArenaClient} from '../public/src/arena-client.js';
 import {emptyMap} from '../public/src/maps.js';
 import {WEAPONS} from '../public/src/game.js';
@@ -91,7 +92,7 @@ test('reordered packets retain unique shots and action edges, never replaying du
 
 test('spawn shield and respawn identity protect new lives from historical impacts',()=>{
  const s=room(),[a,b]=s.players;b.shield=1;recordHistory(s,true);bolt(s);until(s,1500);assert.equal(b.health,90);
- b.shield=0;recordHistory(s,true);bolt(s);until(s,1650);assert(s.impacts.length>0);respawn(s,b);const health=b.health;until(s,2000);assert.equal(b.health,health);
+ b.shield=0;recordHistory(s,true);issueReceipt(s,a,1500,'pending');bolt(s);until(s,1650);assert(s.impacts.length>0);respawn(s,b);const health=b.health;until(s,2000);assert.equal(b.health,health);
  assert.equal(a.kills,0);
 });
 
@@ -171,4 +172,50 @@ test('local firing feedback is immediate and the authoritative echo does not pla
  const s=room(),a=s.players[0],events=[],c=new ArenaClient({onEvent:e=>events.push(e)});s.revision=1;issueReceipt(s,a,1000,'clock');c.receive(arenaSnapshot(s,a.id,true));
  c.step(1/120,{firePressed:true,fire:false});assert.equal(c.shots.length,1);assert.equal(events.filter(e=>e.type==='shot').length,1);
  s.revision=2;s.events=[{id:99,type:'shot',player:a.id,weapon:3,shotId:c.shots[0].id}];c.receive(arenaSnapshot(s,a.id));assert.equal(events.filter(e=>e.type==='shot').length,1);
+});
+
+test('confirmation uses outstanding timing permissions instead of imposing 250 ms on every hit',()=>{
+ for(const rtt of [30,90,200]){
+  const s=room(),a=s.players[0],r=clock(s,a,1800);measureTiming(a,{receipt:r.id,waitMs:0},1800+rtt);
+  const latest=clock(s,a,2300);const delay=confirmationTime(s,latest.time)-latest.time;
+  assert(Math.abs(delay-(rtt/2+95)/1000)<1e-7,`${rtt} ms gives ${delay}`);assert(delay<.25);
+ }
+ const s=room(),a=s.players[0],r=clock(s,a,1900);const deadline=confirmationTime(s,.95);measureTiming(a,{receipt:r.id,waitMs:80},2000);
+ assert.equal(confirmationTime(s,.95),deadline,'an outstanding receipt keeps its originally granted allowance');
+});
+
+test('jump and dash predict immediately; replay uses shared collision and cannot tunnel through cover',()=>{
+ const s=room(),a=s.players[0],c=new ArenaClient();issueReceipt(s,a,1000,'prediction');s.revision=1;c.receive(arenaSnapshot(s,a.id,true));
+ c.step(1/120,{jump:true,dash:true,z:1});assert(c.view.player.y>0);assert(c.view.player.z<40-.15);assert(c.view.player.dashCooldown>2);
+ const solids=[{min:[29,0,35],max:[31,5,36]}],p={...a,x:30,z:40,y:0,vy:0,grounded:true,dashTime:0,dashCooldown:0};
+ const history=Array.from({length:42},(_,i)=>({dt:1/120,input:{z:1,yaw:0,dash:i===0}}));
+ const predicted=replayMotion(p,history,.35,{speed:6},solids);assert(predicted.z>=36.36-.001);
+ const expected={...p};for(const h of history)advanceMotion(expected,h.input,{speed:6},h.dt,solids);assert(Math.abs(expected.z-predicted.z)<1e-6);
+});
+
+test('jittered snapshots never rewind remote presentation time and fresh shots flush before the next regular send',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});let now=1000;t.mock.method(performance,'now',()=>now);
+ const s=room(),a=s.players[0],c=new ArenaClient();s.revision=1;s.time=1;issueReceipt(s,a,2000,'one');c.receive(arenaSnapshot(s,a.id,true));c.active=true;c.request=async()=>new Promise(()=>{});c.schedule();
+ c.step(1/120,{firePressed:true});t.mock.timers.tick(0);assert.equal(c.seq,1);assert.equal(c.inFlight,1);
+ c.renderTime=1;s.time=1.01;s.revision=2;now+=100;c.receive(arenaSnapshot(s,a.id));c.step(1/120,{});assert(c.renderTime>=1);
+ c.active=false;clearTimeout(c.timer);
+});
+
+test('movement prediction stays near the same travel distance at 30, 90 and 200 ms RTT',t=>{
+ let now=0;t.mock.method(performance,'now',()=>now);const positions=[];
+ for(const rtt of [30,90,200]){
+  now=0;const s=room(),a=s.players[0],c=new ArenaClient();s.revision=0;issueReceipt(s,a,1000,'start');c.latency=rtt;c.receive(arenaSnapshot(s,a.id,true));
+  const upstream=[],downstream=[];let sendAt=50,seq=0,atSpeed=null,maxBackward=0,previous=40;
+  for(let tick=1;tick<=216;tick++){
+   now=tick*1000/120;
+   while(upstream.length&&upstream[0].at<=now+1e-6){const packet=upstream.shift();advanceArena(s,1000+packet.at);acceptInput(s,a.id,packet.input,packet.seq,1000+packet.at);s.revision++;issueReceipt(s,a,1000+packet.at,'clock-'+packet.seq);downstream.push({at:packet.at+rtt/2,snapshot:structuredClone(arenaSnapshot(s,a.id))});}
+   while(downstream.length&&downstream[0].at<=now+1e-6)c.receive(downstream.shift().snapshot);
+   c.step(1/120,{z:now>=500&&now<1500?1:0});
+   if(now>=600&&now<1400)maxBackward=Math.max(maxBackward,c.view.player.z-previous);previous=c.view.player.z;
+   if(Math.abs(now-1200)<.01)atSpeed=c.view.player.z;
+   if(now+1e-6>=sendAt){upstream.push({at:now+rtt/2,seq:++seq,input:{...c.held}});sendAt+=50;}
+  }
+  assert(Math.abs(atSpeed-(40-.7*5.3))<.36,`${rtt} ms position ${atSpeed}`);assert(maxBackward<.01,`${rtt} ms pulled back ${maxBackward}`);positions.push(atSpeed);
+ }
+ assert(Math.max(...positions)-Math.min(...positions)<.2,positions.join(', '));
 });
