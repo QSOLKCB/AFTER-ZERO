@@ -64,6 +64,13 @@ SQLite/D1-compatible API calls, including a compare-and-swap conflict and a
 duplicate packet. The standalone suite checks real local HTTP clients, CORS,
 limits, restart persistence and consistent backup restoration.
 
+## Browser smoke check
+
+The updated browser client created a local Team Deathmatch room, maintained its
+connection while bots scored and rounds restarted, and left successfully. The
+[recorded lobby screenshot](verification/arena-lobby-v040.jpg) shows the actual
+room and the explicit WebGL-unavailable message. Combat rendering was not tested.
+
 ## Limits and acceptance work
 
 These are deterministic/synthetic latency tests and local HTTP tests. They are
