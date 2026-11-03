@@ -1,11 +1,12 @@
 // Shared deterministic arena rules. Production advances this state on the server only.
-import {worldFor,firstWall,enemyRay,WEAPONS,STEP} from './game.js';
-import {Navigation,steerTo} from './navigation.js';
+import {firstWall,enemyRay,WEAPONS,STEP} from './game.js';
+import {steerTo} from './navigation.js';
+import {arenaGeometry} from './arena-geometry.js?v=0.4.4';
 import {clamp,forward} from './math.js';
 import {generateMap,seedNumber} from './generator.js';
 import {cloneMap,parseMap} from './maps.js';
 import {advanceMotion} from './arena-motion.js';
-import {NET,recordHistory,historicalPose,playerNetwork,measureTiming,validateShot,rememberShot,confirmationTime} from './arena-network.js';
+import {NET,recordHistory,historicalPose,playerNetwork,measureTiming,validateShot,rememberShot,confirmationTime} from './arena-network.js?v=0.4.4';
 export const MODES={dm:'Deathmatch',tdm:'Team deathmatch',dom:'Domination'};
 export const CLASSES={
  sniper:{name:'Sniper',weapon:3,health:90,speed:5.3,role:'NULL rail · long-range precision'},
@@ -200,7 +201,7 @@ function advanceProjectiles(s,world,dt){
  }
  s.projectiles=s.projectiles.filter(b=>b.life>0).slice(-400);
 }
-export function finishArenaUpdate(s,now){if(s.status!=='playing')return;advanceProjectiles(s,worldFor(s.map),STEP);settleImpacts(s);judgeRound(s,now);}
+export function finishArenaUpdate(s,now){if(s.status!=='playing')return;advanceProjectiles(s,arenaGeometry(s.map).world,STEP);settleImpacts(s);judgeRound(s,now);}
 function advanceStep(s,world,nav,dt,now,settle=true){
  s.time+=dt;
  for(const p of s.players){
@@ -243,7 +244,7 @@ function judgeRound(s,now){
 export function advanceArena(s,now,{settle=true}={}){
  for(const p of s.players)if(!p.bot&&now-p.lastSeen>12000)leaveArena(s,p.id);
  if(s.status!=='playing'){s.at=now;return;}
- const elapsed=clamp((now-s.at)/1000,0,.25);if(elapsed<=0)return;const world=worldFor(s.map),nav=new Navigation(s.map),count=Math.floor((elapsed+1e-10)/STEP);
+ const elapsed=clamp((now-s.at)/1000,0,.25);if(elapsed<=0)return;const {world,nav}=arenaGeometry(s.map),count=Math.floor((elapsed+1e-10)/STEP);
  for(let i=0;i<count&&s.status==='playing';i++)advanceStep(s,world,nav,STEP,now,settle);
  s.at=now-Math.max(0,elapsed-count*STEP)*1000;
 }

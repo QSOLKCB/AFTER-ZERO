@@ -39,7 +39,19 @@ export class Renderer{
   this.attrs=['aPosition','aNormal','aColor'].map(n=>gl.getAttribLocation(p,n));this.u=Object.fromEntries(['VP','Eye','Sky','Accent','Time','Fog','Slow'].map(n=>[n,gl.getUniformLocation(p,'u'+n)]));
   gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);this.staticMesh=new Mesh();this.dynamic=new Mesh();this.gun=new Mesh();this.particles=[];this.map=null;
  }
- draw(mesh,staticUsage=false){const gl=this.gl;if(!mesh.length)return;mesh.buffer??=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);if(!staticUsage||!mesh.uploaded){gl.bufferData(gl.ARRAY_BUFFER,mesh.data.subarray(0,mesh.length),staticUsage?gl.STATIC_DRAW:gl.DYNAMIC_DRAW);mesh.uploaded=true;}for(let i=0;i<3;i++){gl.enableVertexAttribArray(this.attrs[i]);gl.vertexAttribPointer(this.attrs[i],3,gl.FLOAT,false,36,i*12);}gl.drawArrays(gl.TRIANGLES,0,mesh.length/9);}
+ draw(mesh,staticUsage=false){
+  const gl=this.gl;if(!mesh.length)return;mesh.buffer??=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);
+  if(!staticUsage||!mesh.uploaded){
+   const values=mesh.data.subarray(0,mesh.length);
+   // Retained-capacity upload pattern adapted from VANILLAJS v1.0.0 (Apache-2.0).
+   // Commit capacity only after upload succeeds; draw only the live prefix.
+   if(values.byteLength>(mesh.gpuBytes||0)){gl.bufferData(gl.ARRAY_BUFFER,values,staticUsage?gl.STATIC_DRAW:gl.DYNAMIC_DRAW);mesh.gpuBytes=values.byteLength;}
+   else gl.bufferSubData(gl.ARRAY_BUFFER,0,values);
+   mesh.uploaded=true;
+  }
+  for(let i=0;i<3;i++){gl.enableVertexAttribArray(this.attrs[i]);gl.vertexAttribPointer(this.attrs[i],3,gl.FLOAT,false,36,i*12);}gl.drawArrays(gl.TRIANGLES,0,mesh.length/9);
+ }
+ dispose(){for(const mesh of [this.staticMesh,this.dynamic,this.gun]){if(mesh.buffer)this.gl.deleteBuffer(mesh.buffer);mesh.buffer=null;mesh.gpuBytes=0;mesh.uploaded=false;}this.gunSignature=null;this.gl.deleteProgram(this.program);}
  setMap(game){
   this.map=game.map;this.palette=PALETTES[this.map.palette];this.particles=[];const m=this.staticMesh.clear();m.uploaded=false;
   const accent=this.palette.accent,glow=accent.map(c=>c*1.7),wall=this.palette.wall,w=game.world.width,h=game.world.height,rng=seededRandom(48+game.level);
@@ -90,8 +102,13 @@ export class Renderer{
   if(b.charge>0){mesh.box(b.x,2.65*scale,b.z,b.charge/.65*1.3,.055,.08,orange);}
  }
  weapon(game,reduced){
-  const mesh=this.gun.clear(),id=game.weapon,w=WEAPONS[id],ads=smooth(game.ads),walk=game.moving&&!reduced?Math.sin(game.time*12)*.012:0,reload=game.reload>0?Math.sin(game.reload/w.reload*Math.PI):0;
-  const x=mix(.24,0,ads),y=mix(-.28,-.24,ads)-walk*(1-ads)-reload*.35,z=-.58+game.recoil*.09,metal=[.14,.18,.23],edge=[.32,.37,.4],dark=[.045,.065,.09],glow=w.color.map(n=>n*1.7);
+  const id=game.weapon,w=WEAPONS[id],ads=smooth(game.ads),walk=game.moving&&!reduced?Math.sin(game.time*12)*.012:0,reload=game.reload>0?Math.sin(game.reload/w.reload*Math.PI):0;
+  const x=mix(.24,0,ads),y=mix(-.28,-.24,ads)-walk*(1-ads)-reload*.35,z=-.58+game.recoil*.09,flash=game.recoil>.77&&!reduced,metal=[.14,.18,.23],edge=[.32,.37,.4],dark=[.045,.065,.09],glow=w.color.map(n=>n*1.7);
+  // Complete effective inputs: camera/time alone do not change the weapon mesh.
+  const inputs=[id,x,y,z,...glow];if(!inputs.every(Number.isFinite))throw TypeError('Invalid weapon geometry');
+  const signature=JSON.stringify([inputs.map(v=>Object.is(v,-0)?'-0':v),flash]);
+  if(this.gunSignature===signature)return this.gun;
+  this.gunSignature=null;const mesh=this.gun.clear();mesh.uploaded=false;
   const box=(a,b,c,d,e,f,col)=>mesh.box(x+a,y+b,z+c,d,e,f,col),tube=(a,b,c,r,l,col)=>mesh.cylinder(x+a,y+b,z+c,r,l,col);
   const length=id===0?.36:id===3?.85:.58;
   box(0,0,0,.16,.13,length,metal);box(0,.075,.04,.145,.045,length*.9,edge);box(0,-.13,.10,.1,.24,.15,dark);box(0,-.14,-.12,.09,id===1?.28:.18,.12,metal);
@@ -103,7 +120,8 @@ export class Renderer{
   if(id===4){for(let i=0;i<3;i++)tube(0,.015,-.23-i*.10,.065,.04,glow);}
   box(.06,-.16,.14,.13,.12,.14,[.08,.12,.15]);box(.14,-.28,.32,.18,.2,.36,[.13,.19,.22]);
   if(id!==0){box(-.07,-.10,-.19,.12,.11,.15,[.08,.12,.15]);box(-.16,-.25,-.07,.14,.17,.29,[.13,.19,.22]);}
-  if(game.recoil>.77&&!reduced){box(0,.015,-length/2-.38,.12,.12,.2,[2,1.3,.4]);}
+  if(flash){box(0,.015,-length/2-.38,.12,.12,.2,[2,1.3,.4]);}
+  this.gunSignature=signature;
   return mesh;
  }
  render(game,{menu=false,time=0,dt=0,quality=1,reduced=false}={}){
@@ -126,6 +144,6 @@ export class Renderer{
   for(const t of game.tracers)mesh.line(t.a,t.b,.009,t.color.map(n=>n*1.8));
   for(const v of this.particles){const delta=dt*game.timeScale;v.life-=delta;v.x+=v.vx*delta;v.y+=v.vy*delta;v.z+=v.vz*delta;v.vy-=12*delta;const s=.035+v.life*.05;mesh.box(v.x,Math.max(.04,v.y),v.z,s,s,s,v.color);}
   this.particles=this.particles.filter(p=>p.life>0);this.draw(mesh);
-  if(!menu&&!(game.weapon===3&&game.ads>.8)){gl.clear(gl.DEPTH_BUFFER_BIT);gl.uniformMatrix4fv(this.u.VP,false,perspective(65*Math.PI/180,width/height));gl.uniform3fv(this.u.Eye,[0,0,0]);gl.uniform1f(this.u.Fog,0);this.draw(this.weapon(game,reduced));}
+  if(!menu&&!(game.weapon===3&&game.ads>.8)){gl.clear(gl.DEPTH_BUFFER_BIT);gl.uniformMatrix4fv(this.u.VP,false,perspective(65*Math.PI/180,width/height));gl.uniform3fv(this.u.Eye,[0,0,0]);gl.uniform1f(this.u.Fog,0);this.draw(this.weapon(game,reduced),true);}
  }
 }

@@ -1,0 +1,509 @@
+{
+  "environment": {
+    "node": "v24.22.1",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor"
+  },
+  "scope": "Two warm-up pairs and seven alternating measured pairs. Exact state/Float32 output hashes outside timing windows. Renderer API model includes upload copying; no native WebGL or physical GPU timing.",
+  "reports": [
+    {
+      "name": "8 bots / 100 serialized server updates",
+      "beforeMedianMs": 245.46055000000024,
+      "afterMedianMs": 177.0705009999997,
+      "changePercent": -27.861930970170345,
+      "before": [
+        {
+          "ms": 253.47859799999992,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 236.20135400000004,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 240.73171000000002,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 252.028679,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 236.18680300000005,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 280.01875999999993,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 245.46055000000024,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        }
+      ],
+      "after": [
+        {
+          "ms": 193.82330300000012,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 169.68666499999995,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 186.25294499999973,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 159.9587630000001,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 173.99061600000005,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 192.3452360000001,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        },
+        {
+          "ms": 177.0705009999997,
+          "hash": "8e585356857944a21cf76a009cacda77daba52e5a0b38b2a5f3198afa9f974b2"
+        }
+      ]
+    },
+    {
+      "name": "16 bots / 100 serialized server updates",
+      "beforeMedianMs": 625.2273550000009,
+      "afterMedianMs": 476.18434999999954,
+      "changePercent": -23.838209222307803,
+      "before": [
+        {
+          "ms": 588.2604040000006,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 612.6404459999994,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 666.064699999999,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 712.0295260000003,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 606.2456760000005,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 625.2273550000009,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 650.0210759999991,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        }
+      ],
+      "after": [
+        {
+          "ms": 476.18434999999954,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 427.3028570000006,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 498.4015529999997,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 499.60753999999906,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 459.08081200000015,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 453.72033999999985,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        },
+        {
+          "ms": 479.168146,
+          "hash": "06dc93a19ea795f0a20b409488ca3e68e9926c7eb1b4f1205d4e5d1ece026225"
+        }
+      ]
+    },
+    {
+      "name": "240 weapon frames / settled",
+      "beforeMedianMs": 5.573569999998654,
+      "afterMedianMs": 0.8519410000026255,
+      "changePercent": -84.7146263525383,
+      "before": [
+        {
+          "ms": 6.611782999980278,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 7.546836000008625,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 4.001536000016131,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 5.095743000008952,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 4.873820999973759,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 5.573569999998654,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 5.6093610000007175,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        }
+      ],
+      "after": [
+        {
+          "ms": 1.2564879999918048,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        },
+        {
+          "ms": 0.8519410000026255,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        },
+        {
+          "ms": 1.476963999970394,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        },
+        {
+          "ms": 0.8153789999942092,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        },
+        {
+          "ms": 0.6400729999950272,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        },
+        {
+          "ms": 1.4368720000111352,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        },
+        {
+          "ms": 0.7508509999897797,
+          "hash": "4944c46339b1a5dc7b336a57a313d0934b6b05d5a4443f4d8332ab157d278ca2",
+          "allocations": 1,
+          "uploads": 1,
+          "values": 6804,
+          "draws": 240
+        }
+      ]
+    },
+    {
+      "name": "240 weapon frames / aim-then-hold",
+      "beforeMedianMs": 4.631268999995882,
+      "afterMedianMs": 1.0752470000061294,
+      "changePercent": -76.78288607275705,
+      "before": [
+        {
+          "ms": 5.80831499998385,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 3.967636000004859,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 4.631268999995882,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 6.662494999998671,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 4.393414000011035,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 4.226219000005585,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        },
+        {
+          "ms": 6.161918000007063,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1632960,
+          "draws": 240
+        }
+      ],
+      "after": [
+        {
+          "ms": 1.0741300000045158,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        },
+        {
+          "ms": 1.4270129999931669,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        },
+        {
+          "ms": 1.5294530000119266,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        },
+        {
+          "ms": 1.0752470000061294,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        },
+        {
+          "ms": 0.9841940000023897,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        },
+        {
+          "ms": 1.4913689999975759,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        },
+        {
+          "ms": 0.9050760000027367,
+          "hash": "f136180649cf540c466464086676ae94f59eed590d8aee344aceb87070aa1d7d",
+          "allocations": 1,
+          "uploads": 25,
+          "values": 170100,
+          "draws": 240
+        }
+      ]
+    },
+    {
+      "name": "240 weapon frames / rapid-change",
+      "beforeMedianMs": 6.539244999996299,
+      "afterMedianMs": 6.160567000002629,
+      "changePercent": -5.790852001934232,
+      "before": [
+        {
+          "ms": 6.113800999986779,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 6.539244999996299,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 9.005974000025162,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 7.202676999997493,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 8.134487000017543,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 5.570964000013191,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 6.532731999976022,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 240,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        }
+      ],
+      "after": [
+        {
+          "ms": 5.603533999983483,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 6.656946999990396,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 7.178840000004129,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 6.160567000002629,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 5.951866999988852,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 5.291988999997557,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        },
+        {
+          "ms": 9.587959999984378,
+          "hash": "f9c2a346df0a104feaea4adc52c6815b4b07ab4f7cb857ff376ffe701b1b2f55",
+          "allocations": 6,
+          "uploads": 240,
+          "values": 1945944,
+          "draws": 240
+        }
+      ]
+    }
+  ]
+}

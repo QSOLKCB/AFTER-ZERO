@@ -47,6 +47,18 @@ Magazines require reloading; reserves are unlimited, preventing ammunition soft 
 
 Each sector’s **first completion** awards one permanent upgrade credit: +20 health, +25 chronal capacity, or +10% damage. Purchases apply from the next sector or restart. Replays cannot farm credits. Unlocks, best scores, fastest times and purchases persist locally. There is no mid-sector checkpoint; restarting begins that sector again. Saves are browser-local and are not synced between devices.
 
+## Arena responsiveness — 0.4.4
+
+Busy rooms retain each player's delivered shot clocks, fixing valid shots rejected
+as expired at 200 ms RTT. Repeated queued snapshots retain their original timing
+anchor. Existing authoritative rewind limits, travelling rounds, weapon cadence
+and cover checks remain in place.
+
+VANILLAJS v1.0.0 informed exact weapon-mesh reuse, retained GPU buffer storage,
+unchanged HUD-write suppression and a bounded collision/navigation cache.
+[Verification and measured limits](docs/verification/ARENA_V044.md) distinguish
+CPU preparation/upload counts from physical GPU frame rates.
+
 ## Enemy navigation
 
 Campaign enemies and arena bots share a body-aware route planner. Seeing over a low crate no longer makes an enemy walk into it. Routes keep clearance around solid corners, take smooth shortcuts only when the whole body fits, and prefer safe floor over plasma when a safe detour exists. A player standing on a crate is approached from reachable floor.

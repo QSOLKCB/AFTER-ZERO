@@ -1,8 +1,8 @@
-# Arena hit timing and responsiveness — 0.4.2
+# Arena hit timing and responsiveness — 0.4.4
 
 The goal is to preserve legitimate hits across ordinary latency differences. The
 server never accepts client positions, hit claims, damage, ammunition or scores.
-The same simulation runs in Sites/D1 and the optional Render/SQLite adapter.
+The same simulation runs in Sites/D1 and the Render/SQLite adapter. The live backend uses the existing Singapore Render service.
 
 ## Timing contract
 
@@ -14,10 +14,13 @@ The same simulation runs in Sites/D1 and the optional Render/SQLite adapter.
 - Each response carries a server-generated receipt bound to that player, life
   and round. Echo timing estimates RTT after subtracting time the receipt spent
   at the client. A recent minimum limits jitter inflation. Each measured receipt
-  retains its timing estimate. No client wall clock or claimed ping is used.
+  retains its timing estimate. Receipts are issued only to the response recipient,
+  so other players cannot evict a delivered clock. Repeated delivery of the same
+  clock keeps its first client receipt time. No client wall clock or claimed ping is used.
 - Shot age credit is half the measured RTT (capped at 125 ms), plus one 50 ms
   send interval and 25 ms of jitter allowance, with an absolute 200 ms ceiling.
-  Views may rewind at most 250 ms and must agree with the referenced snapshot.
+  Views may rewind at most 250 ms. Queued snapshots may show newer poses under
+  an existing receipt, but its original 250 ms firing permission is not extended.
   Future, expired, foreign and previous-life receipts are rejected. Client timing
   is still untrusted: bounds reduce abuse, but cannot prove the physical instant
   of a mouse click or detect all deliberate network delay.
@@ -122,9 +125,9 @@ the managed host's application of Smart Placement is unverified.
 
 The [live lobby evidence](verification/arena-latency-v042.jpg) shows connected
 players, bot scores, an 800 ms round trip and the WebGL limitation. The next
-hosting acceptance check is the prepared dedicated Render service, after the
-workspace and paid-resource approval. It must demonstrate lower latency before
-frontend cutover; no Render service has been created.
+hosting step was completed in 0.4.3: the approved Singapore Render service now
+serves both frontends. See [the rollout record](verification/RENDER_V043.md) for
+actual observations and remaining latency/GPU limitations.
 
 ## Earlier browser smoke check
 
@@ -165,3 +168,21 @@ checks. Its projectile module handles static colliders and has no multiplayer
 synchronization. AFTER//ZERO keeps its robot geometry, moving-target sweep and
 new timing implementation. No VANILLAJS code or assets were copied; the exact
 reference and Apache-2.0 provenance are recorded in `public/NOTICE`.
+
+## Version 0.4.4 — delivered clocks and exact reuse
+
+A 16-slot room with 14 authenticated humans polling at 20 Hz previously discarded
+a delivered 200 ms shooter's receipt before the shot returned (`expired-clock`).
+`tests/arena-transport.test.mjs` reproduces this through the persisted API. Only
+issuing receipts for the response recipient repairs the rejection without
+increasing rewind allowances. A separate test protects first-delivery timing
+when a queued response repeats a clock with a newer room revision.
+
+The real ArenaClient polling/firing/receive methods now run through a virtual wire
+and the SQLite API at 30, 90 and 200 ms RTT. Three aimed rail rounds per case
+register 285 body damage on a moving target; automatic fire also survives the
+enumerated 200 ms + 35 ms jitter schedule. These are deterministic transport
+tests, not measurements of real players or worldwide internet conditions.
+
+The pinned VANILLAJS v1.0.0 review and measured CPU/upload changes are recorded
+in [ARENA_V044.md](verification/ARENA_V044.md). No new paid resources are required.

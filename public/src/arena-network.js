@@ -50,7 +50,9 @@ export function validateShot(s,p,shot,now){
  // s.at is the wall-clock instant of the last fixed tick; using request time here
  // would add a changing sub-tick error and reject legitimate automatic fire.
  const at=s.time-Math.max(0,(s.at-serverAt)/1000),view=shot.viewTime;
- if(view>r.time+1e-6||view<r.time-.12||view>at+.012||at-view>NET.viewAge+1e-6)return {reason:'stale-view'};
+ // A queued response may show a newer world under the same receipt. Allow
+ // that view without extending the receipt's original firing permission.
+ if(at>r.time+NET.viewAge+1e-6||view<r.time-.12||view>at+.012||at-view>NET.viewAge+1e-6)return {reason:'stale-view'};
  const origin=historicalPose(s,p.id,at);
  if(!origin||origin.life!==p.life||!origin.alive)return {reason:'expired-life'};
  if(!Number.isFinite(shot.yaw)||!Number.isFinite(shot.pitch)||!Number.isInteger(shot.weapon))return {reason:'invalid-shot'};
