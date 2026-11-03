@@ -27,7 +27,8 @@ Release commit: 1f965f4e5b6669de0f954e3a39b11aa679e56720
 Source URL: https://github.com/QSOLKCB/VANILLAJS/releases/tag/v1.0.0
 src/renderer.js adapts its retained GPU-buffer capacity update pattern.
 Its OPT-INV-001 invariant reuse and OPT-INC-001 complete effective-input
-signatures informed the original weapon-geometry and arena-map caches.
+signatures informed the original weapon-geometry and arena-map caches,
+and the 0.4.6 radar-terrain and screen-space sight reuse.
 Its moving-target projectile queries informed collision regression checks;
 AFTER//ZERO retains its own 120 Hz simulation, hit volumes and netcode.
 OPT reference: QSOLKCB/OPT commit 7556dd36acd53ed3ed538fd03b1db44e5c1ec869.

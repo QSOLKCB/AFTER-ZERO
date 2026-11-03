@@ -2,18 +2,8 @@ import {CAMPAIGN,cloneMap,emptyMap,validateMap,parseMap} from './maps.js';
 import {generateMap} from './generator.js';
 import {EDITOR_KEY,writeStored} from './storage.js';
 const TOOLS=[['floor','Floor','#172d39'],['wall','Wall','#637581'],['cover','Crate','#b48c50'],['glass','Server','#46bfcf'],['hazard','Plasma','#f76130'],['erase','Erase','#506070'],['spawn','Start','#f2f6ec'],['exit','Exit','#9dd96a'],['sentry','Sentry','#ee7153'],['runner','Runner','#c868ef'],['heavy','Heavy','#e7b65f'],['architect','Boss','#ff3a32'],['terminal','Relay','#69e7e0'],['health','Medkit','#56c77c'],['charge','Charge','#65a8e8']];
-const COLOURS=['#132530','#667680','#927848','#258c9c','#dd5a2c'];
-export function drawMap(canvas,map,{player=null,enemies=null,terminals=null,grid=true,preview=false}={}){
- const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height,cols=map.tiles[0].length,rows=map.tiles.length,scale=Math.min(w/cols,h/rows),ox=(w-cols*scale)/2,oy=(h-rows*scale)/2;
- ctx.fillStyle='#0b1720';ctx.fillRect(0,0,w,h);ctx.save();ctx.translate(ox,oy);
- map.tiles.forEach((r,z)=>r.forEach((t,x)=>{ctx.fillStyle=COLOURS[t];ctx.fillRect(x*scale+.5,z*scale+.5,scale-(grid?1:.3),scale-(grid?1:.3));}));
- const dot=(x,z,c,r=.22,label='')=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc((x+.5)*scale,(z+.5)*scale,Math.max(1.5,scale*r),0,Math.PI*2);ctx.fill();if(label&&scale>12){ctx.fillStyle='#08141b';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`bold ${scale*.45}px monospace`;ctx.fillText(label,(x+.5)*scale,(z+.51)*scale);}};
- for(const p of (enemies||map.enemies)){if(p.alive===false)continue;dot(enemies?p.x/3:p.x,enemies?p.z/3:p.z,Number.isInteger(p.team)?(p.team===0?'#38d6ee':'#ff5b7a'):p.type==='runner'?'#ce78f1':p.type==='architect'?'#ff4339':'#ff886b',.3,preview?'':p.type[0].toUpperCase());}
- for(const p of (terminals||map.terminals))dot(terminals?p.x/3:p.x,terminals?p.z/3:p.z,p.active?'#395d66':'#73e5e1',.3,preview?'':'T');
- if(!player)for(const p of map.pickups)dot(p.x,p.z,p.type==='health'?'#73d498':'#81bdf3',.23,preview?'':p.type==='health'?'+':'C');
- const exit=map.exit;ctx.strokeStyle='#b9f576';ctx.lineWidth=2;ctx.strokeRect((exit.x+.15)*scale,(exit.z+.15)*scale,scale*.7,scale*.7);
- const p=player||map.spawn,x=player?p.x/3:p.x,z=player?p.z/3:p.z;ctx.save();ctx.translate((x+.5)*scale,(z+.5)*scale);ctx.rotate(p.yaw);ctx.fillStyle='#f0faf6';ctx.beginPath();ctx.moveTo(0,-scale*.42);ctx.lineTo(scale*.28,scale*.3);ctx.lineTo(0,scale*.16);ctx.lineTo(-scale*.28,scale*.3);ctx.closePath();ctx.fill();ctx.restore();ctx.restore();
-}
+import {drawMap} from './map-view.js?v=0.4.6';
+export {drawMap};
 export class Editor{
  constructor({onTest,notice,storage}){
   this.onTest=onTest;this.notice=notice;this.storage=storage;this.map=cloneMap(CAMPAIGN[0]);this.undo=[];this.redo=[];this.tool='wall';this.drag=false;this.dirtyStroke=false;

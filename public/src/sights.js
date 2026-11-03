@@ -1,9 +1,15 @@
 // Original screen-space optics. The centre is the same ray used by combat.
+const sightCache=new WeakMap();
 export function drawSight(canvas,{weapon=0,ads=0,reload=0,recoil=0,preview=false}={}){
  const ctx=canvas.getContext('2d');
  if(!preview){const dpr=Math.min(globalThis.devicePixelRatio||1,2),w=Math.round(canvas.clientWidth*dpr),h=Math.round(canvas.clientHeight*dpr);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}}
  const w=canvas.width,h=canvas.height,dpr=preview?1:Math.min(globalThis.devicePixelRatio||1,2),x=w/2,y=h/2;
- ctx.clearRect(0,0,w,h);if(reload>0&&!preview)return;
+ const hidden=reload>0&&!preview,aimed=ads>.8;
+ const signature=[w,h,dpr,preview,hidden,weapon,aimed,hidden||aimed?0:recoil];
+ const previous=sightCache.get(canvas);
+ if(previous&&signature.every((v,i)=>Object.is(v,previous[i])))return;
+ sightCache.delete(canvas);
+ ctx.clearRect(0,0,w,h);if(hidden){sightCache.set(canvas,signature);return;}
  ctx.save();ctx.translate(x,y);ctx.scale(dpr,dpr);ctx.lineWidth=1.3;ctx.strokeStyle='#bfffea';ctx.fillStyle='#bfffea';ctx.shadowColor='#07171e';ctx.shadowBlur=3;
  const line=(a,b,c,d)=>{ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();};
  const circle=r=>{ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();};
@@ -24,4 +30,5 @@ export function drawSight(canvas,{weapon=0,ads=0,reload=0,recoil=0,preview=false
   line(-gap-6,0,-gap,0);line(gap,0,gap+6,0);line(0,-gap-6,0,-gap);line(0,gap,0,gap+6);
  }
  ctx.shadowBlur=2;ctx.fillStyle='#ff674b';ctx.beginPath();ctx.arc(0,0,1.6,0,Math.PI*2);ctx.fill();ctx.restore();
+ sightCache.set(canvas,signature);
 }
