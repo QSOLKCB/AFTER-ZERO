@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createArena,acceptInput,advanceArena,respawn,arenaSnapshot} from '../public/src/arena-sim.js';
-import {NET,recordHistory,issueReceipt,historicalPose,interpolatePlayers,confirmationTime,measureTiming} from '../public/src/arena-network.js';
+import {NET,recordHistory,issueReceipt,historicalPose,interpolatePlayers,confirmationTime,measureTiming,validateShot} from '../public/src/arena-network.js';
 import {advanceMotion,replayMotion} from '../public/src/arena-motion.js';
 import {ArenaClient} from '../public/src/arena-client.js';
 
@@ -123,6 +123,18 @@ test('older snapshots cannot rewind the client; neutral clears unacknowledged fi
  const s=room(),id=s.players[0].id,c=new ArenaClient();s.revision=2;issueReceipt(s,s.players[0],1000,'new');c.receive(arenaSnapshot(s,id,true));
  s.revision=1;s.players[0].health=1;assert.equal(c.receive(arenaSnapshot(s,id)),false);assert.equal(c.me.health,90);
  c.shots=[{id:1}];c.actions=[{id:1,input:{jump:true}}];c.fireUntil=Infinity;c.neutral();assert.deepEqual(c.shots,[]);assert.deepEqual(c.actions,[]);assert.equal(c.held.fire,false);
+});
+
+test('queued snapshots preserve the first receipt delivery and allow their newer visible poses',t=>{
+ let now=1950;t.mock.method(performance,'now',()=>now);
+ const s=room(),a=s.players[0],r=clock(s,a,1900),c=new ArenaClient();
+ s.revision=1;c.receive(structuredClone(arenaSnapshot(s,a.id,true)));
+ until(s,2000);s.revision=2;now=2050;c.receive(structuredClone(arenaSnapshot(s,a.id)));
+ c.step(1/120,{firePressed:true,aim:true});const shot=c.shots[0];
+ assert.equal(shot.elapsedMs,100);assert(shot.viewTime>r.time);
+ until(s,2100);measureTiming(a,{receipt:r.id,waitMs:100},2100);
+ assert.equal(validateShot(s,a,shot,2100).reason,undefined);
+ until(s,2300);assert.equal(validateShot(s,a,{...shot,elapsedMs:300,viewTime:s.time-.05},2300).reason,'stale-view','receipt lifetime remains bounded');
 });
 
 test('every equipped weapon keeps its cadence under delayed, duplicated and reordered delivery',()=>{

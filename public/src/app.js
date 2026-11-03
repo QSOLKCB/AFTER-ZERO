@@ -1,11 +1,12 @@
+import {textValue,styleValue} from './hud-values.js?v=0.4.4';
 import {Game,STEP,WEAPONS} from './game.js';
 import {CAMPAIGN} from './maps.js';
-import {Renderer} from './renderer.js';
+import {Renderer} from './renderer.js?v=0.4.4';
 import {Sound} from './audio.js';
 import {Editor,drawMap} from './editor.js';
 import {readSave,writeStored,SAVE_KEY,SETTINGS_KEY,completeMission} from './storage.js';
-import {setupArena,arenaScore} from './arena-ui.js?v=0.4.3';
-import {MODES,CLASSES} from './arena-sim.js';
+import {setupArena,arenaScore} from './arena-ui.js?v=0.4.4';
+import {MODES,CLASSES} from './arena-sim.js?v=0.4.4';
 import {drawSight} from './sights.js';
 import {Controls} from './controls.js';
 const $=s=>document.querySelector(s),canvas=$('#world');
@@ -104,19 +105,19 @@ function input(){
 }
 function updateHud(){
  drawSight($('#sight'),game);$('#sight').hidden=!!game.arena&&!arenaUI.client?.me?.alive;
- const p=game.player,w=WEAPONS[game.weapon];$('#health-value').textContent=Math.ceil(p.health);$('#health-max').textContent='/ '+game.maxHealth;$('#health-bar').style.width=p.health/game.maxHealth*100+'%';$('#chrono-value').textContent=Math.ceil(p.energy/game.maxEnergy*100)+'%';$('#chrono-bar').style.width=p.energy/game.maxEnergy*100+'%';$('#weapon-name').textContent=w.name+' / '+w.kind.split(' / ')[0];$('#ammo-value').textContent=String(game.ammo[game.weapon]).padStart(2,'0');$('#mag-value').textContent=w.mag;$('#reload-label').textContent=game.reload>0?`RELOADING / ${game.reload.toFixed(1)}s`:'R / RELOAD · 1–5 / SWITCH';$('#dash-state').textContent=game.dashCooldown>0?`${game.dashCooldown.toFixed(1)}s`:'READY';$('#hud-sector').textContent=game.custom?'FORGE / CUSTOM SECTOR':game.map.subtitle;$('#hud-objective').textContent=game.exitReady?'REACH EXTRACTION':game.relaysRemaining?'SEVER THE RELAYS':'CLEAR REMAINING SECURITY';$('#hud-counts').textContent=`${game.remaining} HOSTILES / ${game.relaysRemaining} RELAYS / ${game.score} PTS`;$('#interact-prompt').textContent=game.hint;
+ const p=game.player,w=WEAPONS[game.weapon];textValue($('#health-value'),Math.ceil(p.health));textValue($('#health-max'),'/ '+game.maxHealth);styleValue($('#health-bar'),'width',p.health/game.maxHealth*100+'%');textValue($('#chrono-value'),Math.ceil(p.energy/game.maxEnergy*100)+'%');styleValue($('#chrono-bar'),'width',p.energy/game.maxEnergy*100+'%');textValue($('#weapon-name'),w.name+' / '+w.kind.split(' / ')[0]);textValue($('#ammo-value'),String(game.ammo[game.weapon]).padStart(2,'0'));textValue($('#mag-value'),w.mag);if(!game.arena)textValue($('#reload-label'),game.reload>0?`RELOADING / ${game.reload.toFixed(1)}s`:'R / RELOAD · 1–5 / SWITCH');if(!game.arena||arenaUI.client?.me?.class!=='engineer')textValue($('#dash-state'),game.dashCooldown>0?`${game.dashCooldown.toFixed(1)}s`:'READY');if(!game.arena){textValue($('#hud-sector'),game.custom?'FORGE / CUSTOM SECTOR':game.map.subtitle);textValue($('#hud-objective'),game.exitReady?'REACH EXTRACTION':game.relaysRemaining?'SEVER THE RELAYS':'CLEAR REMAINING SECURITY');textValue($('#hud-counts'),`${game.remaining} HOSTILES / ${game.relaysRemaining} RELAYS / ${game.score} PTS`);textValue($('#interact-prompt'),game.hint);}
  document.body.classList.toggle('slow',game.slow&&mode==='playing');document.body.classList.toggle('aim',game.ads>.5&&mode==='playing');drawMap($('#radar'),game.map,{player:p,enemies:game.enemies,terminals:game.terminals,grid:false,preview:true});
 }
 function updateArenaHud(){
  const c=arenaUI.client;if(!c?.snapshot)return;const s=c.snapshot,me=c.me;
- $('#hud-sector').textContent=`ARENA / ${MODES[s.mode]} / ${c.code}`;
- $('#hud-objective').textContent=s.status==='finished'?'ROUND COMPLETE':!me.alive?`RESPAWN / ${me.respawnIn.toFixed(1)}s`:s.mode==='dom'?'HOLD THE SIGNAL':s.mode==='tdm'?(me.team===0?'CYAN TEAM':'MAGENTA TEAM'):'EVERY SIGNAL IS A TARGET';
- $('#hud-counts').textContent=arenaScore(s)+` · ${Math.max(0,300-Math.floor(s.time))}s · ${c.latency}ms`;
- $('#interact-prompt').textContent=s.mode==='dom'?s.nodes.map(n=>n.label+' '+(n.contested?'CONTESTED':n.owner===null?'NEUTRAL':n.owner===0?'CYAN':'MAGENTA')+(n.progress?' '+Math.round(n.progress*100)+'%':'')).join(' / '):'';
- $('#reload-label').textContent=game.reload>0?'RELOADING':'R RELOAD / 1 SIDEARM / '+(CLASSES[me.class].weapon+1)+' PRIMARY';
- $('#time-label').textContent='CHRONAL FIELD / ALL ROUNDS 0.25×';
- $('#game-help').textContent='W/S move · A/D turn · Z/C strafe · Mouse look · RMB sights · Q field · Tab scores'+(me.class==='engineer'?' · E repair station':'')+' · Esc menu';
- if(me.class==='engineer')$('#dash-state').textContent=me.ability>0?'REPAIR '+Math.ceil(me.ability)+'s':'E REPAIR READY';
+ textValue($('#hud-sector'),`ARENA / ${MODES[s.mode]} / ${c.code}`);
+ textValue($('#hud-objective'),s.status==='finished'?'ROUND COMPLETE':!me.alive?`RESPAWN / ${me.respawnIn.toFixed(1)}s`:s.mode==='dom'?'HOLD THE SIGNAL':s.mode==='tdm'?(me.team===0?'CYAN TEAM':'MAGENTA TEAM'):'EVERY SIGNAL IS A TARGET');
+ textValue($('#hud-counts'),arenaScore(s)+` · ${Math.max(0,300-Math.floor(s.time))}s · ${c.latency}ms`);
+ textValue($('#interact-prompt'),s.mode==='dom'?s.nodes.map(n=>n.label+' '+(n.contested?'CONTESTED':n.owner===null?'NEUTRAL':n.owner===0?'CYAN':'MAGENTA')+(n.progress?' '+Math.round(n.progress*100)+'%':'')).join(' / '):'');
+ textValue($('#reload-label'),game.reload>0?'RELOADING':'R RELOAD / 1 SIDEARM / '+(CLASSES[me.class].weapon+1)+' PRIMARY');
+ textValue($('#time-label'),'CHRONAL FIELD / ALL ROUNDS 0.25×');
+ textValue($('#game-help'),'W/S move · A/D turn · Z/C strafe · Mouse look · RMB sights · Q field · Tab scores'+(me.class==='engineer'?' · E repair station':'')+' · Esc menu');
+ if(me.class==='engineer')textValue($('#dash-state'),me.ability>0?'REPAIR '+Math.ceil(me.ability)+'s':'E REPAIR READY');
 }
 function eventEffects(){for(const e of game.events.splice(0)){renderer.effect(e);if(e.type!=='damage'||hurtTimer<=0)sound.play(e.type,e.weapon);if(e.type==='damage')hurtTimer=.3;if(e.type==='hit')hitTimer=.13;if(e.type==='kill')toast(game.slow?'TIME FRACTURE / +150':'SECURITY REMOVED / +100');if(e.type==='relay')toast('RELAY SEVERED / CHRONAL RESERVE RESTORED');if(e.type==='pickup')toast('IMPLANT REPLENISHED');}}
 function frame(ms){
@@ -128,8 +129,8 @@ function frame(ms){
   }
   if(!game.arena){eventEffects();if(game.status!=='playing')finish();}if(mode==='playing')sound.music(game.slow);
  }else accumulator=0;
- hitTimer=Math.max(0,hitTimer-dt);hurtTimer=Math.max(0,hurtTimer-dt);toastTimer=Math.max(0,toastTimer-dt);$('#hitmarker').classList.toggle('show',hitTimer>0);document.body.classList.toggle('hurt',hurtTimer>0);if(toastTimer===0)$('#game-toast').textContent='';
- if(mode!=='menu'){updateHud();if(game.arena)updateArenaHud();else{$('#time-label').innerHTML='CHRONAL SHIFT <b>0.20×</b>';$('#game-help').textContent='W/S move · A/D turn · Z/C strafe · Mouse look · RMB sights · Q bullet time · E interact · Esc pause';}}
+ hitTimer=Math.max(0,hitTimer-dt);hurtTimer=Math.max(0,hurtTimer-dt);toastTimer=Math.max(0,toastTimer-dt);$('#hitmarker').classList.toggle('show',hitTimer>0);document.body.classList.toggle('hurt',hurtTimer>0);if(toastTimer===0)textValue($('#game-toast'),'');
+ if(mode!=='menu'){updateHud();if(game.arena)updateArenaHud();else{if($('#time-label').textContent!=='CHRONAL SHIFT 0.20×')$('#time-label').innerHTML='CHRONAL SHIFT <b>0.20×</b>';textValue($('#game-help'),'W/S move · A/D turn · Z/C strafe · Mouse look · RMB sights · Q bullet time · E interact · Esc pause');}}
  if(tab!=='editor'||mode!=='menu')renderer.render(game,{menu:mode==='menu',time,dt:mode==='playing'?dt:0,quality:settings.low?0:1,reduced:settings.reduced});
 }
 updateCampaign();game=new Game(CAMPAIGN[selected],{level:selected});

@@ -1,11 +1,14 @@
-import {ArenaClient} from './arena-client.js?v=0.4.3';
-import {CLASSES,MODES} from './arena-sim.js';
+import {ArenaClient} from './arena-client.js?v=0.4.4';
+import {CLASSES,MODES} from './arena-sim.js?v=0.4.4';
 import {validateMap,cloneMap} from './maps.js';
+import {textValue} from './hud-values.js?v=0.4.4';
 const $=s=>document.querySelector(s);
 export function roster(target,s){
- target.replaceChildren();const row=(values,classes='')=>{const r=document.createElement('div');r.className='roster-row '+classes;for(const value of values){const e=document.createElement('span');e.textContent=value;r.append(e);}target.append(r);};
+ let index=0;const row=(values,classes='')=>{let r=target.children[index++];if(!r){r=document.createElement('div');target.append(r);}const name='roster-row '+classes;if(r.className!==name)r.className=name;
+  values.forEach((value,i)=>{let e=r.children[i];if(!e){e=document.createElement('span');r.append(e);}textValue(e,value);});};
  row(['CALLSIGN','CLASS','SIGNAL','K','D'],'roster-head');
  for(const p of s.players.slice().sort((a,b)=>s.mode==='dm'?b.kills-a.kills:a.team-b.team||b.kills-a.kills))row([p.name+(p.id===s.you?' / YOU':''),CLASSES[p.class].name,p.bot?'AI':'HUMAN',p.kills,p.deaths],(s.mode==='dm'?'':`team-${p.team} `)+(p.id===s.you?'mine':''));
+ while(target.children.length>index)target.lastElementChild.remove();
 }
 export function arenaScore(s){return s.mode==='dm'?`LEADER ${Math.max(...s.players.map(p=>p.kills))} / ${s.limit}`:`CYAN ${s.scores[0]} : ${s.scores[1]} MAGENTA / ${s.limit}`;}
 export function setupArena({editor,canPlay,onEnter,onLeave,onEvent,onLost}){

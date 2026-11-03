@@ -57,7 +57,9 @@ export async function handleArena(request,env,now=Date.now()){
     }
     for(const id of Object.keys(state.sessions))if(!state.players.some(p=>p.id===id&&!p.bot))delete state.sessions[id];
     state.revision=claim.row.revision+1;
-    for(const player of state.players)if(!player.bot)issueReceipt(state,player,now,crypto.randomUUID());
+    // A receipt belongs to a response, not a room tick. Issuing one for every
+    // human on every request evicted delivered clocks in busy/high-ping rooms.
+    if(action!=='leave')issueReceipt(state,p,now,crypto.randomUUID());
     if(await persistArena(env.DB,{code,lease:claim.lease,revision:claim.row.revision,state,commands,now})){released=true;return json(action==='leave'?{left:true}:{code,snapshot:arenaSnapshot(state,playerId,action==='join')});}
     commands=await readCommands(env.DB,code,now);
    }
