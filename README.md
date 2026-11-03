@@ -24,6 +24,28 @@ Open the hosted game in a desktop browser with hardware acceleration and WebGL e
 
 Losing focus, hiding the tab, or losing an acquired pointer lock pauses single-player simulation and clears held input. Online rounds continue; a paused player remains vulnerable and sends neutral input. Resume is deliberate. Restart constructs fresh simulation state without registering another input handler or animation loop.
 
+## Campaign controls and OPT reuse — 0.4.6
+
+Mouse-look updates every display frame, independently of the 120 Hz movement and
+combat step. Large locked mouse movements are retained instead of dropping fast
+swipes. Starting/resuming waits for confirmed pointer capture; failed or cancelled
+capture cannot silently start a sector. Raw mouse input is requested where
+supported, with ordinary Pointer Lock as the compatibility fallback.
+
+A/D still turn by default. In Settings, **WASD strafe layout** makes A/D move
+sideways and leaves arrow-key turning available; Z/C also remain usable. The
+choice persists locally and the control hints follow it. Pause, focus loss and
+pointer unlock clear queued input.
+
+The campaign already shares the retained WebGL buffers, weapon-mesh reuse and
+HUD write suppression added in 0.4.4. This update additionally reuses unchanged
+radar terrain and sights. Moving enemies, player markers, recoil, zoom and reload
+changes still update. Exact bounded tile comparisons invalidate the radar after
+map edits without allocating JSON snapshots every frame.
+
+[Campaign verification](docs/verification/CAMPAIGN_V046.md) records automated
+regressions, native Canvas pixel comparisons and measured timing limits.
+
 ## Campaign
 
 | Sector | Environment | Relays | Hostiles | Hardware unlocked |

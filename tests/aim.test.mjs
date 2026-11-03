@@ -15,5 +15,5 @@ test('mouse down lowers pitch, up raises it, invert is explicit, zoom never flip
 });
 test('drag look uses viewport displacement and pending mouse motion is consumed exactly once',()=>{
  const c=new Controls();c.pointerStart(100,100);c.pointerMove({clientX:120,clientY:160,movementX:-200,movementY:-300},false);const i=c.read();assert.equal(i.mouseX,20);assert.equal(i.mouseY,60);assert.equal(c.read().mouseY,0);
- c.pointerMove({movementX:2000,movementY:2000},true);assert.equal(c.read().mouseY,0);
+ c.pointerMove({movementX:2000,movementY:2000},true);assert.equal(c.read().mouseY,2000);
 });

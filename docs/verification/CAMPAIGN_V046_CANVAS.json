@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-03",
+  "environment": "Cloud Chromium, native Canvas 2D; WebGL unavailable",
+  "pixelComparisons": 336,
+  "results": [
+    {
+      "workload": "240 radar frames, unchanged terrain with moving player marker",
+      "beforeMs": 69,
+      "afterMs": 1.8
+    },
+    {
+      "workload": "240 settled sight frames",
+      "beforeMs": 0.9,
+      "afterMs": 0.1
+    },
+    {
+      "workload": "240 rapidly changing sight frames",
+      "beforeMs": 0.8,
+      "afterMs": 0.9
+    }
+  ],
+  "method": "One warm-up pair, seven alternating measured pairs; medians; CPU Canvas submission only, not GPU completion or whole-game FPS",
+  "pointerCapture": "Blocked in this cloud browser; acquisition/rejection/late-grant regressions tested using event/promise harnesses"
+}
