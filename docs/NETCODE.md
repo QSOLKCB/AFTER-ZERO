@@ -1,4 +1,4 @@
-# Arena hit timing and responsiveness — 0.4.4
+# Arena hit timing and responsiveness — 0.4.5
 
 The goal is to preserve legitimate hits across ordinary latency differences. The
 server never accepts client positions, hit claims, damage, ammunition or scores.
@@ -186,3 +186,15 @@ tests, not measurements of real players or worldwide internet conditions.
 
 The pinned VANILLAJS v1.0.0 review and measured CPU/upload changes are recorded
 in [ARENA_V044.md](verification/ARENA_V044.md). No new paid resources are required.
+
+## Version 0.4.5 — stalled response recovery
+
+A newer acknowledged input now aborts older pending HTTP responses. These
+obsolete requests previously kept five of six send slots occupied for up to
+five seconds, delaying valid new shots. Shot/action IDs stay queued until their
+individual acknowledgements arrive. Leaving also cancels outstanding polls.
+
+A virtual-wire test with five delayed responses changed from 2/13 to 13/13
+automatic shots accepted at 200 ms RTT. Live cloud-runtime requests still show
+stalls and late rejections: see [the follow-up record](verification/ARENA_V045.md).
+This change does not widen rewind limits or establish worldwide fairness.

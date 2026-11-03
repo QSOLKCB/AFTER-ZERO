@@ -8,8 +8,8 @@ import {ARENA_API_URL} from './arena-endpoint.js?v=0.4.4';
 const edges=['jump','dash','reload','timePressed','use'];
 export class ArenaClient{
  constructor({onUpdate=()=>{},onEvent=()=>{},onError=()=>{}}={}){this.onUpdate=onUpdate;this.onEvent=onEvent;this.onError=onError;this.token=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');this.seq=0;this.pending={};this.held={};this.active=false;this.eventId=0;this.latency=0;this.received=0;this.inFlight=0;this.frames=[];this.shots=[];this.actions=[];this.commandId=0;this.shotId=0;this.fireReady=WEAPONS.map(()=>0);this.revision=-1;this.fireUntil=0;this.predictedShots=new Set();this.motionHistory=[];this.correction={x:0,y:0,z:0};this.lastSent=-Infinity;this.nextSend=Infinity;}
- async request(body){
-  const start=performance.now(),response=await fetch(ARENA_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:this.token,code:this.code,...body}),signal:AbortSignal.timeout(5000)});
+ async request(body,{signal=AbortSignal.timeout(5000)}={}){
+  const start=performance.now(),response=await fetch(ARENA_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:this.token,code:this.code,...body}),signal});
   let data;try{data=await response.json();}catch{throw Error('Online rooms need the hosted game server. This static copy supports Campaign and Forge.');}
   if(!response.ok)throw Object.assign(Error(data.error||'Connection interrupted.'),{status:response.status});this.latency=Math.round(performance.now()-start);return data;
  }
@@ -22,14 +22,19 @@ export class ArenaClient{
   this.schedule();if(this.inFlight>=NET.maxInFlight)return;this.lastSent=performance.now();
   const clock=this.snapshot?.clock;
   const payload={action:'sync',seq:++this.seq,input:{...this.held},timing:{protocol:2,receipt:clock?.id,waitMs:Math.max(0,performance.now()-(this.clockReceived??this.received)),shots:this.shots.slice(0,32),actions:this.actions.slice(0,16)}};
-  this.inFlight++;
-  try{const data=await this.request(payload);if(!this.active)return;this.receive(data.snapshot);}
-  catch(err){if(!this.active||payload.seq<(this.snapshot?.ack??0))return;this.error=err.message;if(err.status===401||err.status===404||err.status===507){this.active=false;clearTimeout(this.timer);this.onError(err.message);this.onUpdate(this);}else if(performance.now()-this.received>1000)this.onError(err.message);else this.onUpdate(this);}
-  finally{this.inFlight--;}
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(new DOMException('Connection timed out.','TimeoutError')),5000);
+  this.polls??=new Map();this.polls.set(payload.seq,controller);this.inFlight++;
+  try{const data=await this.request(payload,{signal:controller.signal});if(!this.active)return;this.receive(data.snapshot);}
+  catch(err){if(!this.active||payload.seq<(this.snapshot?.ack??0)||(controller.signal.aborted&&controller.signal.reason?.name==='AbortError'))return;this.error=err.message;if(err.status===401||err.status===404||err.status===507){this.active=false;clearTimeout(this.timer);this.onError(err.message);this.onUpdate(this);}else if(performance.now()-this.received>1000)this.onError(err.message);else this.onUpdate(this);}
+  finally{clearTimeout(timeout);this.polls.delete(payload.seq);this.inFlight--;}
  }
  receive(s){
   if(s.revision<=this.revision)return false;
   this.revision=s.revision;this.error='';
+  // A slow obsolete response must not occupy the bounded send window after a
+  // newer input is acknowledged. Unique shot/action IDs remain queued until
+  // their own acknowledgements arrive; cancellation never discards those edges.
+  for(const [seq,controller] of this.polls||[])if(seq<s.ack)controller.abort();
   const acknowledged=new Set((s.shotResults||[]).map(r=>r.id));this.shots=this.shots.filter(q=>!acknowledged.has(q.id));
   const commands=new Set(s.actionAck||[]);this.actions=this.actions.filter(q=>!commands.has(q.id));
   const rejected=(s.shotResults||[]).filter(r=>r.id>(this.resultId||0)&&['late-shot','stale-view','expired-clock'].includes(r.reason));
@@ -84,5 +89,5 @@ export class ArenaClient{
  neutral(){this.pending={};this.motionHistory=[];this.correction={x:0,y:0,z:0};this.shots=[];this.actions=[];this.fireUntil=0;this.held={x:0,z:0,fire:false,aim:false,yaw:this.view?.player.yaw||0,pitch:this.view?.player.pitch||0};}
  async reliableRequest(body){for(let attempt=0;;attempt++){try{return await this.request(body);}catch(error){if(error.status!==409||attempt>=3)throw error;await new Promise(resolve=>setTimeout(resolve,60+attempt*30));}}}
  async changeClass(kind){const data=await this.reliableRequest({action:'class',kind});this.receive(data.snapshot);}
- async leave(){this.active=false;clearTimeout(this.timer);this.neutral();try{await this.reliableRequest({action:'leave'});}catch{} }
+ async leave(){this.active=false;clearTimeout(this.timer);for(const controller of this.polls?.values()||[])controller.abort();this.neutral();try{await this.reliableRequest({action:'leave'});}catch{} }
 }

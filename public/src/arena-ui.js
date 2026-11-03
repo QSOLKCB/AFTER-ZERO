@@ -1,4 +1,4 @@
-import {ArenaClient} from './arena-client.js?v=0.4.4';
+import {ArenaClient} from './arena-client.js?v=0.4.5';
 import {CLASSES,MODES} from './arena-sim.js?v=0.4.4';
 import {validateMap,cloneMap} from './maps.js';
 import {textValue} from './hud-values.js?v=0.4.4';

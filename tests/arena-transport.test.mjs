@@ -34,7 +34,7 @@ test('14 humans polling at 20 Hz cannot evict another player’s delivered 200 m
 
 // Virtual wire runs the actual client polling, firing, response handling and API,
 // including SQLite serialization. No synthetic shot timestamps or hit claims.
-async function wire(t,{rtt=200,jitter=0,moving=false,kind='sniper',fireFor=2500}={}){
+async function wire(t,{rtt=200,jitter=0,moving=false,kind='sniper',fireFor=2500,fireStart=300,stalledResponses=0}={}){
  const DB=openStore(':memory:');let now=1000,serial=0;
  t.mock.method(performance,'now',()=>now);
  const queue=[],enqueue=(at,run)=>queue.push({at,order:++serial,run}),results=new Map();
@@ -46,11 +46,12 @@ async function wire(t,{rtt=200,jitter=0,moving=false,kind='sniper',fireFor=2500}
  now+=rtt/2;c.receive(initial.snapshot);
  c.schedule=function(delay=50){const generation=this.scheduleGeneration=(this.scheduleGeneration||0)+1;this.nextSend=now+delay;enqueue(this.nextSend,()=>{if(this.active&&generation===this.scheduleGeneration)void this.poll();});};
  let requests=0;
- c.request=body=>new Promise((resolve,reject)=>{
-  const extra=jitter&&requests++%7===2?jitter:0,started=now;
+ c.request=(body,{signal}={})=>new Promise((resolve,reject)=>{
+  const number=requests++,extra=jitter&&number%7===2?jitter:0,started=now;
+  const abort=()=>reject(signal.reason);signal?.addEventListener('abort',abort,{once:true});
   enqueue(now+rtt/2+extra,async()=>{
    try{const data=await call(DB,{token:c.token,code,...body},now);for(const r of data.snapshot.shotResults)results.set(r.id,r.reason);
-    enqueue(now+rtt/2+extra,()=>{c.latency=now-started;resolve(data);});
+    enqueue(now+(number<stalledResponses?2500:rtt/2+extra),()=>{signal?.removeEventListener('abort',abort);if(signal?.aborted)return;c.latency=now-started;resolve(data);});
    }catch(error){reject(error);}
   });
  });
@@ -59,7 +60,7 @@ async function wire(t,{rtt=200,jitter=0,moving=false,kind='sniper',fireFor=2500}
  for(let frame=1;frame<=420;frame++)enqueue(start+frame*1000/120,()=>{
   if(!c.active)return;const target=c.view.enemies.find(p=>p.id===targetId),p=c.view.player;
   p.yaw=Math.atan2(target.x-p.x,p.z-target.z);p.pitch=Math.atan2(target.y+1.2-p.y-1.67,Math.hypot(target.x-p.x,target.z-p.z));
-  c.step(1/120,{fire:now>start+300&&now<start+300+fireFor,aim:true});
+  c.step(1/120,{fire:now>start+fireStart&&now<start+fireStart+fireFor,aim:true});
  });
  while(queue.length){queue.sort((a,b)=>a.at-b.at||a.order-b.order);const next=queue.shift();if(next.at>end+500)break;now=next.at;if(now>end)c.active=false;await next.run();await Promise.resolve();await Promise.resolve();}
  const state=JSON.parse(DB.sqlite.prepare('SELECT data FROM arena_rooms WHERE code=?').get(code).data),target=state.players.find(p=>p.id===targetId);
@@ -78,5 +79,12 @@ test('real client shots hit a moving target through 30, 90 and 200 ms transport'
 test('automatic fire survives modest packet jitter without losing rounds to clock drift',async t=>{
  const result=await wire(t,{rtt:200,jitter:35,kind:'assault',fireFor:1200});
  assert(result.shots>=13,JSON.stringify(result));
+ assert(result.results.every(reason=>reason==='accepted'),JSON.stringify(result));
+});
+
+test('five stalled HTTP responses do not starve subsequent automatic fire at 200 ms RTT',async t=>{
+ const result=await wire(t,{rtt:200,stalledResponses:5,kind:'assault',fireStart:1000,fireFor:1200});
+ assert(result.shots>=13,JSON.stringify(result));
+ assert.equal(result.results.length,result.shots,JSON.stringify(result));
  assert(result.results.every(reason=>reason==='accepted'),JSON.stringify(result));
 });
