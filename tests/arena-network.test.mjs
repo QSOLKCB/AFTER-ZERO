@@ -119,6 +119,21 @@ test('transport sends at 20 Hz regardless of 30/90/200 ms RTT and caps outstandi
  }
 });
 
+test('a newer acknowledged response releases obsolete stalled polls without losing unacknowledged shots',async()=>{
+ const s=room(),a=s.players[0],errors=[],c=new ArenaClient({onError:e=>errors.push(e)});s.revision=1;issueReceipt(s,a,1000,'first');c.receive(arenaSnapshot(s,a.id,true));
+ c.active=true;c.schedule=()=>{};c.shots=[{id:9,receipt:'first'}];let latest;
+ c.request=(body,{signal}={})=>new Promise((resolve,reject)=>{
+  signal?.addEventListener('abort',()=>reject(signal.reason),{once:true});if(body.seq===6)latest=resolve;
+ });
+ const pending=Array.from({length:6},()=>c.poll());assert.equal(c.inFlight,6);
+ s.revision=2;a.seq=6;latest({snapshot:arenaSnapshot(s,a.id)});
+ // Every superseded fetch must settle, without waiting for its five-second timeout.
+ for(let i=0;i<8;i++)await Promise.resolve();
+ assert.equal(c.inFlight,0,'old requests must not occupy the six-slot send window');
+ assert.deepEqual(c.shots,[{id:9,receipt:'first'}]);assert.deepEqual(errors,[]);
+ c.active=false;await Promise.all(pending);
+});
+
 test('older snapshots cannot rewind the client; neutral clears unacknowledged firing',()=>{
  const s=room(),id=s.players[0].id,c=new ArenaClient();s.revision=2;issueReceipt(s,s.players[0],1000,'new');c.receive(arenaSnapshot(s,id,true));
  s.revision=1;s.players[0].health=1;assert.equal(c.receive(arenaSnapshot(s,id)),false);assert.equal(c.me.health,90);

@@ -1,0 +1,343 @@
+{
+  "environment": "Codex cloud runtime via actual HTTPS fetch, not the player network or worldwide",
+  "v044_twenty_second_sample": {
+    "endpoint": "https://afterzero-arena.onrender.com/api/arena",
+    "seconds": 20,
+    "mode": "tdm",
+    "slots": 8,
+    "activeDuringTest": [
+      true,
+      true
+    ],
+    "balancedHumans": true,
+    "first": {
+      "time": 0,
+      "revision": 0
+    },
+    "last": {
+      "time": 18.14999999999961,
+      "revision": 356,
+      "humans": 2,
+      "bots": 6,
+      "scores": [
+        3,
+        10
+      ]
+    },
+    "syncResponses": 356,
+    "statusCounts": {
+      "200": 356
+    },
+    "rttMs": {
+      "p50": 271,
+      "p95": 555,
+      "max": 1004
+    },
+    "totalResponseBodyBytes": 3170957,
+    "timingReceipts": 343,
+    "shotResults": [
+      {
+        "client": "beta",
+        "id": 1,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 2,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 3,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 4,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 5,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 6,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 7,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 1,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 2,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 3,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 4,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 5,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 6,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 7,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 8,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 9,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 10,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 11,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 12,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 13,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 14,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 15,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 16,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 17,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 18,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 19,
+        "reason": "invalid-clock"
+      },
+      {
+        "client": "beta",
+        "id": 8,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 9,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 10,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 20,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 21,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 22,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 23,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 24,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 25,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 26,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 27,
+        "reason": "expired-clock"
+      },
+      {
+        "client": "alpha",
+        "id": 28,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 29,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 11,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 30,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 31,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 32,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 33,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 34,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 35,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 36,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 12,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 13,
+        "reason": "accepted"
+      },
+      {
+        "client": "alpha",
+        "id": 37,
+        "reason": "late-shot"
+      },
+      {
+        "client": "beta",
+        "id": 14,
+        "reason": "accepted"
+      },
+      {
+        "client": "alpha",
+        "id": 38,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 39,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 40,
+        "reason": "late-shot"
+      },
+      {
+        "client": "alpha",
+        "id": 41,
+        "reason": "accepted"
+      }
+    ],
+    "errors": [
+      "The operation was aborted due to timeout"
+    ],
+    "left": [
+      200,
+      200
+    ],
+    "measuredFrom": "Codex cloud runtime; not the player network or worldwide"
+  },
+  "v045_six_point_five_second_checks": [
+    {
+      "shots": 15,
+      "shotResults": {
+        "late-shot": 15
+      },
+      "snapshots": 19,
+      "errors": []
+    },
+    {
+      "shots": 15,
+      "shotResults": {
+        "late-shot": 13,
+        "accepted": 2
+      },
+      "snapshots": 20,
+      "errors": []
+    }
+  ]
+}
